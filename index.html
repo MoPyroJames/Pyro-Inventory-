@@ -1269,9 +1269,9 @@ function renderReportTab() {
     // Dates
     const checkinDt = c.createdAt||c.addedAt ? new Date(c.createdAt||c.addedAt) : null;
     const checkinStr = checkinDt ? checkinDt.toLocaleDateString() : '—';
-    // Check-out = first removal log entry for this case's shells or the case itself
-    const caseRmLog = (state.data.removalLog||[]).filter(e=>e.catalogNum===c.catalogNum||cShells.some(s=>s.shellNum===e.shellNum));
-    const lastOut = caseRmLog.length ? new Date(Math.max(...caseRmLog.map(e=>new Date(e.removedAt)))) : null;
+    // Check-out = only when the CASE ITSELF is in the removal log (all shells used)
+    const caseRmEntry = (state.data.removalLog||[]).find(e=>e.type==='case'&&e.catalogNum===c.catalogNum);
+    const lastOut = caseRmEntry ? new Date(caseRmEntry.removedAt) : null;
     const checkoutStr = lastOut ? lastOut.toLocaleDateString() : '—';
 
     const shellRows = cShells.map(s=>{
@@ -1321,13 +1321,7 @@ function renderReportTab() {
       </td>
       <td style="font-family:var(--mono);font-size:11px;color:#fca5a5">
         ${checkoutStr}
-        ${(()=>{
-          const rmEntry = (state.data.removalLog||[]).find(e=>e.type==='case'&&e.catalogNum===c.catalogNum);
-          if (!rmEntry) return '';
-          const d=new Date(rmEntry.removedAt);const p=n=>String(n).padStart(2,'0');
-          const dtVal=isNaN(d)?'':`${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
-          return '<br>'+dpBtn(rmEntry.removedAt||'',iso=>{updateLogTs('removal',rmEntry.id,iso);renderTab('report')},'Set date');
-        })()}
+        ${caseRmEntry ? '<br>'+dpBtn(caseRmEntry.removedAt||'',iso=>{updateLogTs('removal',caseRmEntry.id,iso);renderTab('report')},'Set date') : ''}
       </td>
       <td style="text-align:center;white-space:nowrap">
         <button onclick="toggleHideFromReport('${c.id}')" title="${c.hideFromReport?'Restore to ATF report':'Remove from ATF report'}"
@@ -2312,8 +2306,20 @@ function printReport(direction) {
         const rmEntry = (removalLog||[]).find(e=>e.type==='shell'&&e.shellNum===s.shellNum);
         const outTs = rmEntry ? rmEntry.removedAt : s.usedAt;
         const sOut = outTs?(()=>{const d=new Date(outTs).toISOString().slice(0,10);const[y,m,day]=d.split('-');return m+'/'+day+'/'+y;})():'—';
-        const outStyle = outTs ? 'color:#991b1b;font-family:monospace;font-weight:600' : 'color:#555';
-        return `<tr class="shell-row"><td>${s.shellNum}</td><td>${s.desc}</td><td colspan="5"></td><td style="text-align:right">${lbs(s.newW)}</td><td><span class="badge-${s.status}">${s.status}</span></td><td></td><td>${sIn}</td><td style="${outStyle}">${sOut}</td></tr>`;
+        const outStyle = outTs ? 'color:#991b1b;font-family:monospace;font-weight:600' : 'color:#aaa';
+        // 14 cols: Shell#, Desc, [Class,Mfg,PurchFrom,EX#,Type=colspan5], NEW/unit, Rem/Tot, TotalNEW, Status, Show, Check-in, Check-out
+        return `<tr class="shell-row">
+          <td>${s.shellNum}</td>
+          <td>${s.desc}</td>
+          <td colspan="5"></td>
+          <td style="text-align:right">${lbs(s.newW)}</td>
+          <td style="text-align:right">1/1</td>
+          <td style="text-align:right">${lbs(s.newW)}</td>
+          <td><span class="badge-${s.status}">${s.status}</span></td>
+          <td></td>
+          <td style="font-family:monospace;color:#16543a">${sIn}</td>
+          <td style="${outStyle}">${sOut}</td>
+        </tr>`;
       }).join('');
       return `<tr><td>${c.catalogNum}</td><td>${c.name}</td><td>${CLASS_LABELS[c.cls]||c.cls}</td><td>${c.mfg||'—'}</td><td style="color:#60a5fa">${c.purchasedFrom||'—'}</td><td style="color:#b45309;font-family:monospace">${c.exNum||'—'}</td><td>${c.productType||'Shell'}</td><td style="text-align:right;font-weight:600">${lbs(c.newW)}</td><td style="text-align:right;font-weight:600">${c.remainingShells}/${c.totalShells}</td><td style="text-align:right;font-weight:700;color:#0f3460">${lbs(c.totalShells*c.newW)}</td><td><span class="badge-${st}">${(CASE_STATUS[st]||{label:st}).label}</span></td><td style="color:#1e40af;font-size:9px">${showNames||'—'}</td><td style="font-family:monospace;color:#16543a;font-weight:600">${checkin}</td><td>—</td></tr>${shellSubRows}`;
     }).join('');
