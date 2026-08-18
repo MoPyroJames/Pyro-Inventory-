@@ -4195,11 +4195,155 @@ function dpApply() {
 
 function dpClear(){dp.sel=null;if(dp.cb)dp.cb(null);dpClose();}
 
-// ── Cloud Sync (Supabase) ──────────────────────────────────────────────────
-const SUPA_URL = 'https://trhcgpdyzoykgdorrzbf.supabase.co';
-const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRyaGNncGR5em95a2dkb3JyemJmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcwNTk3MjAsImV4cCI6MjEwMjYzNTcyMH0.SzuvNtcugJRo0X7IPNQu-Dh65PcOdRrvPpX1sPPYLAE';
-const JBIN_PIN_KEY = 'pyro_sync_pin';
-const JBIN_BIN_KEY = 'pyro_sync_bin';
+// ── Cloud Sync (GitHub Gist) ───────────────────────────────────────────────
+// Uses GitHub Gist as storage - free, no network restrictions, works everywhere
+const GIST_PIN_KEY  = 'pyro_sync_pin';
+const GIST_ID_KEY   = 'pyro_gist_id';
+const GIST_TOK_KEY  = 'pyro_gist_token';
+
+function syncStatus(msg, color) {
+  const el = document.getElementById('sync-status');
+  if (el) { el.textContent = msg; el.style.color = color || '#555'; }
+}
+
+function getPin(isNew) {
+  let pin = localStorage.getItem(GIST_PIN_KEY);
+  if (!pin || isNew) {
+    pin = prompt(isNew
+      ? 'Set a 4-digit PIN for sync (use same PIN on all devices):'
+      : 'Enter your 4-digit sync PIN:');
+    if (!pin) return null;
+    pin = pin.trim();
+    if (!/^\d{4}$/.test(pin)) { alert('PIN must be 4 digits.'); return null; }
+    localStorage.setItem(GIST_PIN_KEY, pin);
+  }
+  return pin;
+}
+
+function getToken() {
+  let tok = localStorage.getItem(GIST_TOK_KEY);
+  if (!tok) {
+    tok = prompt(
+      'Enter your GitHub Personal Access Token.\n\n' +
+      'To get one:\n' +
+      '1. Go to github.com → Settings\n' +
+      '2. Scroll to Developer settings → Personal access tokens → Tokens (classic)\n' +
+      '3. Generate new token → check "gist" scope only\n' +
+      '4. Copy and paste it here\n\n' +
+      'This is only stored on this device.'
+    );
+    if (!tok) return null;
+    localStorage.setItem(GIST_TOK_KEY, tok.trim());
+  }
+  return tok.trim();
+}
+
+async function cloudSave() {
+  const pin = getPin(!localStorage.getItem(GIST_PIN_KEY));
+  if (!pin) return;
+  const token = getToken();
+  if (!token) return;
+
+  syncStatus('Saving…', '#fbbf24');
+  try {
+    const payload = JSON.stringify({
+      pin,
+      savedAt: new Date().toISOString(),
+      containers: localStorage.getItem('fw_containers_v1') || '[]',
+      shows: localStorage.getItem('fw_shared_shows_v1') || '[]',
+      title: localStorage.getItem('pyro_title') || '',
+      sub: localStorage.getItem('pyro_sub') || '',
+    });
+
+    const gistId = localStorage.getItem(GIST_ID_KEY);
+    let url = 'https://api.github.com/gists';
+    let method = 'POST';
+    if (gistId) { url += '/' + gistId; method = 'PATCH'; }
+
+    const res = await fetch(url, {
+      method,
+      headers: {
+        'Authorization': 'token ' + token,
+        'Content-Type': 'application/json',
+        'Accept': 'application/vnd.github.v3+json',
+      },
+      body: JSON.stringify({
+        description: 'Pyro Inventory Sync',
+        public: false,
+        files: { 'pyro_data.json': { content: payload } },
+      }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.message || res.status);
+    }
+
+    const data = await res.json();
+    localStorage.setItem(GIST_ID_KEY, data.id);
+
+    syncStatus('Saved ✓', '#4ade80');
+    alert('Saved! ✓\n\nOn other devices, click Load and enter:\n• PIN: ' + pin + '\n• Your GitHub token\n• Gist ID: ' + data.id);
+    setTimeout(() => syncStatus(''), 5000);
+  } catch(e) {
+    syncStatus('Failed ✗', '#f87171');
+    alert('Save failed: ' + e.message + '\n\nMake sure your token has the "gist" permission.');
+  }
+}
+
+async function cloudLoad() {
+  const pin = getPin(false);
+  if (!pin) return;
+  const token = getToken();
+  if (!token) return;
+
+  let gistId = localStorage.getItem(GIST_ID_KEY);
+  if (!gistId) {
+    gistId = prompt('Enter the Gist ID shown when you saved\n(or find it at gist.github.com):');
+    if (!gistId) return;
+    localStorage.setItem(GIST_ID_KEY, gistId.trim());
+    gistId = gistId.trim();
+  }
+
+  syncStatus('Loading…', '#fbbf24');
+  try {
+    const res = await fetch('https://api.github.com/gists/' + gistId, {
+      headers: {
+        'Authorization': 'token ' + token,
+        'Accept': 'application/vnd.github.v3+json',
+      },
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.message || res.status);
+    }
+
+    const data = await res.json();
+    const raw = data.files['pyro_data.json']?.content;
+    if (!raw) throw new Error('No data file found in Gist.');
+
+    const payload = JSON.parse(raw);
+    if (payload.pin !== pin) {
+      syncStatus('Wrong PIN ✗', '#f87171');
+      alert('Wrong PIN. Use the same PIN set when saving.');
+      localStorage.removeItem(GIST_PIN_KEY);
+      return;
+    }
+
+    localStorage.setItem('fw_containers_v1', payload.containers);
+    localStorage.setItem('fw_shared_shows_v1', payload.shows);
+    if (payload.title) localStorage.setItem('pyro_title', payload.title);
+    if (payload.sub)   localStorage.setItem('pyro_sub', payload.sub);
+
+    syncStatus('Loaded ✓', '#4ade80');
+    alert('Loaded! Saved: ' + new Date(payload.savedAt).toLocaleString() + '\n\nReloading now.');
+    setTimeout(() => location.reload(), 500);
+  } catch(e) {
+    syncStatus('Failed ✗', '#f87171');
+    alert('Load failed: ' + e.message);
+  }
+}
 
 function syncStatus(msg, color) {
   const el = document.getElementById('sync-status');
