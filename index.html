@@ -363,7 +363,7 @@ let state = {
   editingCase: null,
   editingShell: null,
   search: '', showFilter: '', statusFilter: '', showUsedCases: false,
-  caseForm: {name:'',mfg:'',cls:'1C',productType:'Shell',newW:'',totalShells:'',show:'',shellSize:'',caseCost:'',exNum:'',isSingle:false,singleQty:'1',notes:'',notesOnReport:false,isChain:false,chainCount:'',shellsPerChain:'',boxCount:'1',isAssortment:false,assortmentShells:[]},
+  caseForm: {name:'',mfg:'',cls:'1C',productType:'Shell',newW:'',totalShells:'',show:'',shellSize:'',caseCost:'',exNum:'',purchasedFrom:'',isSingle:false,singleQty:'1',notes:'',notesOnReport:false,isChain:false,chainCount:'',shellsPerChain:'',boxCount:'1',isAssortment:false,assortmentShells:[]},
   shellForm: {desc:'',shellNewW:'',shellSize:'',notes:''},
   showForm: {name:'',date:'',location:'',notes:''},
   assignForm: {caseId:'',qty:'1',shellCaseId:'',selectedShells:{}},
@@ -650,7 +650,7 @@ function renderCasesTab() {
             <span>Used: <strong>${usedCount} shells</strong></span>
             ${totalAssigned>0?`<span>Show-assigned: <strong style="color:#60a5fa;font-family:var(--mono)">${totalAssigned} shells</strong></span>`:''}
             ${c.isChain?`<span style="background:#1a2e1f;color:#86efac;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;font-family:var(--mono)">CHAIN</span><span style="font-family:var(--mono);font-size:16px;font-weight:700;color:#fbbf24">${c.packingStr||`${c.chainCount}/${c.shellsPerChain}/${c.boxCount||1}`}</span><span style="font-size:11px;color:#888">${c.chainCount} chains · ${c.shellsPerChain} shells/fuse · ${c.boxCount||1} box = ${c.totalShells} shells total</span>`:c.isAssortment?`<span style="background:#1a2233;color:#60a5fa;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;font-family:var(--mono)">ASSORTMENT</span><span style="font-size:11px;color:#888">${c.shellSize||'same size'} shells · ${c.totalShells} total effects</span>`:''}
-            ${(()=>{const cc=c.caseCost!=null?c.caseCost:(c.price!=null?c.price:null);if(cc==null)return '';const uc=(cc/c.totalShells).toFixed(2);return `<span>Case cost: <strong>$${parseFloat(cc).toFixed(2)}</strong></span><span>Unit cost: <strong>$${uc}</strong></span>`;})()}
+            ${(()=>{const cc=c.caseCost!=null?c.caseCost:(c.price!=null?c.price:null);if(cc==null&&!c.purchasedFrom)return '';const uc=cc!=null?(cc/c.totalShells).toFixed(2):null;return `${cc!=null?`<span>Case cost: <strong>$${parseFloat(cc).toFixed(2)}</strong></span><span>Unit cost: <strong>$${uc}</strong></span>`:''} ${c.purchasedFrom?`<span>Purchased from: <strong>${esc(c.purchasedFrom)}</strong></span>`:''}`;})()}
             <span>Type: <strong>${esc(c.productType||'Shell')}</strong></span>
             ${c.exNum?`<span>EX #: <strong style="font-family:var(--mono);color:var(--amber)">${esc(c.exNum)}</strong></span>`:''}
             <span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
@@ -1135,6 +1135,7 @@ function renderAddTab() {
             style="font-family:var(--mono);color:#86efac">
         </div>`:''}
         <div class="fld"><label>Case cost ($)</label><input type="number" min="0" step="0.01" placeholder="0.00" value="${esc(caseForm.caseCost)}" oninput="state.caseForm.caseCost=this.value"></div>
+        <div class="fld"><label>Purchased from</label><input placeholder="e.g. Casabella Pyro" value="${esc(caseForm.purchasedFrom)}" oninput="state.caseForm.purchasedFrom=this.value"></div>
         <div class="fld"><label>Unit cost ($)</label><input type="text" readonly style="background:#0a0a0a;color:#888;cursor:default" value="${caseForm.caseCost&&caseForm.totalShells&&parseInt(caseForm.totalShells)>0?'$'+(parseFloat(caseForm.caseCost)/parseInt(caseForm.totalShells)).toFixed(2):'auto'}"></div>
       </div>
       <div class="form-grid" style="grid-template-columns:auto 1fr 1fr 1fr auto auto;align-items:flex-end;gap:12px;margin-top:8px">
@@ -1585,7 +1586,7 @@ function removeAssortmentShell(idx) {
 }
 
 function addCase() {
-  const {name,mfg,cls,productType,newW,totalShells,show,shellSize,caseCost,exNum,isSingle,isChain,chainCount,shellsPerChain,boxCount,isAssortment,assortmentShells,notes,notesOnReport} = state.caseForm;
+  const {name,mfg,cls,productType,newW,totalShells,show,shellSize,caseCost,exNum,purchasedFrom,isSingle,isChain,chainCount,shellsPerChain,boxCount,isAssortment,assortmentShells,notes,notesOnReport} = state.caseForm;
   if (!name.trim()) { state.caseErr='Product description required.'; renderTab('add'); return; }
   if (!parseFloat(newW)||parseFloat(newW)<=0) { state.caseErr='Net explosive weight required.'; renderTab('add'); return; }
 
@@ -1629,13 +1630,14 @@ function addCase() {
     totalShells:n, remainingShells:n, show:show.trim(),
     status: isSingle ? 'open' : 'sealed',
     notes: notes.trim()||null, notesOnReport: notesOnReport||false,
+    purchasedFrom: purchasedFrom.trim()||null,
     source:'manual', createdAt:new Date().toISOString()
   };
   state.data.cases.push(newCase);
   autoLogShells(newCase);
   }
   save();
-  state.caseForm = {name:'',mfg:'',cls:'1C',productType:'Shell',newW:'',totalShells:'',show:show,shellSize:'',caseCost:'',exNum:'',isSingle:false,singleQty:'1',notes:'',notesOnReport:false,isChain:false,chainCount:'',shellsPerChain:'',boxCount:'1',isAssortment:false,assortmentShells:[]};
+  state.caseForm = {name:'',mfg:'',cls:'1C',productType:'Shell',newW:'',totalShells:'',show:show,shellSize:'',caseCost:'',exNum:'',purchasedFrom:'',isSingle:false,singleQty:'1',notes:'',notesOnReport:false,isChain:false,chainCount:'',shellsPerChain:'',boxCount:'1',isAssortment:false,assortmentShells:[]};
   switchTab('cases');
 }
 
@@ -2684,7 +2686,7 @@ function renderAddShellTab() {
   const cases = state.data.cases;
   const sf = state.addShellForm || (state.addShellForm = {
     caseId: cases.length ? String(cases[0].id) : '',
-    desc: '', newW: '', notes: '', checkinDate: new Date().toISOString().slice(0,16)
+    desc: '', newW: '', notes: '', purchasedFrom: '', checkinDate: new Date().toISOString().slice(0,16)
   });
 
   // If no cases, show a prompt
@@ -2725,6 +2727,10 @@ function renderAddShellTab() {
         <div class="fld">
           <label>Notes</label>
           <input placeholder="Optional notes" value="${esc(sf.notes)}" oninput="state.addShellForm.notes=this.value">
+        </div>
+        <div class="fld">
+          <label>Purchased from</label>
+          <input placeholder="e.g. Casabella Pyro" value="${esc(sf.purchasedFrom||'')}" oninput="state.addShellForm.purchasedFrom=this.value">
         </div>
       </div>
 
@@ -2789,6 +2795,7 @@ function addStandaloneShell() {
     desc: sf.desc.trim(),
     newW: newWOz,
     notes: sf.notes?.trim()||'',
+    purchasedFrom: sf.purchasedFrom?.trim()||null,
     status: 'intact',
     addedAt: checkinTs,
   };
@@ -2804,6 +2811,7 @@ function addStandaloneShell() {
   state.addShellForm = {
     caseId: String(caseId),
     desc: '', newW: sf.newW, notes: '',
+    purchasedFrom: sf.purchasedFrom||'',
     checkinDate: sf.checkinDate,
     _lastAdded: lastAdded
   };
@@ -3438,7 +3446,7 @@ function invoiceImport() {
         packingStr: ln.packing||null,
         show: '',
         status: 'sealed',
-        source: 'invoice',
+        purchasedFrom: ln.mfg ? null : null, // can be set manually after import
         createdAt: new Date().toISOString()
       };
       state.data.cases.push(newCase);
