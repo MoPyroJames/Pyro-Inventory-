@@ -2611,7 +2611,12 @@ function renderLogTab() {
           ${(()=>{ const fn=new Function('iso',editFn.replace('this.value','iso')+';renderTab(\'log\')'); return dpBtn(t.ts||'',fn,'Set date'); })()}
         </div>
       </td>
-      ${t._kind==='out' ? `<td><button class="btn-danger" style="font-size:11px" onclick="clearLogEntry(${t._logId})">×</button></td>` : '<td></td>'}
+      ${t._kind==='out' ? `<td style="white-space:nowrap">
+        <div style="display:flex;gap:4px">
+          <button class="btn-sm" style="font-size:11px;background:#0d1f0d;border-color:#166534;color:#4ade80;white-space:nowrap" onclick="returnToContainer(${t._logId})" title="Return this item to the container">↩ Return</button>
+          <button class="btn-danger" style="font-size:11px" onclick="clearLogEntry(${t._logId})" title="Remove log entry only">×</button>
+        </div>
+      </td>` : '<td></td>'}
     </tr>`;
   }).join('');
 
@@ -2709,6 +2714,60 @@ function updateLogTs(kind, id, datetimeLocalValue) {
     }
   }
   save();
+}
+
+function returnToContainer(logId) {
+  const log = state.data.removalLog||[];
+  const entry = log.find(e => e.id === logId);
+  if (!entry) return;
+
+  const {cases, shells} = state.data;
+
+  if (entry.type === 'case') {
+    // Restore the case
+    const c = cases.find(x => x.catalogNum === entry.catalogNum);
+    if (c) {
+      c.status = 'open';
+      c.usedAt = null;
+      // Restore remaining shells — add back the count that was removed
+      const shellsToRestore = (shells.filter(s => s.caseId === c.id && s.status === 'used')).length;
+      // Re-activate shells that were auto-marked used with this case
+      shells.filter(s => s.caseId === c.id && s.status === 'used' && s.autoMarked).forEach(s => {
+        s.status = 'intact';
+        s.usedAt = null;
+        s.usedOnShow = null;
+        s.autoMarked = false;
+      });
+      // Recalculate remaining
+      c.remainingShells = shells.filter(s => s.caseId === c.id && s.status !== 'used').length;
+      if (c.remainingShells === 0) c.remainingShells = c.totalShells; // fallback for sealed cases
+    }
+    // Remove any shell log entries for this case's shells that were auto-marked
+    state.data.removalLog = log.filter(e =>
+      !(e.id === logId) &&
+      !(e.type === 'shell' && e.parentCatalog === entry.catalogNum && e.autoMarked)
+    );
+  } else {
+    // Restore an individual shell
+    const s = shells.find(x => x.shellNum === entry.shellNum);
+    if (s) {
+      s.status = 'intact';
+      s.usedAt = null;
+      s.usedOnShow = null;
+      s.autoMarked = false;
+      // Increment parent case remaining count
+      const pc = cases.find(c => c.id === s.caseId);
+      if (pc) {
+        pc.remainingShells = Math.min(pc.totalShells, (pc.remainingShells||0) + 1);
+        if (pc.status === 'used' || pc.status === 'empty') pc.status = 'open';
+      }
+    }
+    // Remove just this log entry
+    state.data.removalLog = log.filter(e => e.id !== logId);
+  }
+
+  save();
+  renderTab('log');
 }
 
 function clearLogEntry(id) {
