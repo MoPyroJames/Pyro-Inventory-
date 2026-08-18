@@ -3318,6 +3318,7 @@ function openLabelModal() {
             <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#aaa;cursor:pointer"><input type="checkbox" id="lbl-show-new"   checked onchange="updateLabelPreview()" style="accent-color:var(--amber)"> NEW weight</label>
             <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#aaa;cursor:pointer"><input type="checkbox" id="lbl-show-ex"    checked onchange="updateLabelPreview()" style="accent-color:var(--amber)"> EX #</label>
             <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#aaa;cursor:pointer"><input type="checkbox" id="lbl-show-container" checked onchange="updateLabelPreview()" style="accent-color:var(--amber)"> Container name</label>
+            <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#aaa;cursor:pointer"><input type="checkbox" id="lbl-show-date" checked onchange="updateLabelPreview()" style="accent-color:var(--amber)"> Check-in date</label>
           </div>
         </div>
 
@@ -3352,8 +3353,10 @@ function buildLabelData() {
   const showNew  = document.getElementById('lbl-show-new')?.checked;
   const showEx   = document.getElementById('lbl-show-ex')?.checked;
   const showCont = document.getElementById('lbl-show-container')?.checked;
+  const showDate = document.getElementById('lbl-show-date')?.checked;
   const containerName = state.containers.find(c=>c.id===state.activeContainerId)?.name || '';
   const CLASS_LABEL = {'1C':'1.3G Class B','1D':'1.4G Class C','other':'Other'};
+  const fmtDate = iso => iso ? new Date(iso).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : null;
 
   const selCaseIds  = caseSel  ? [...caseSel.options].filter(o=>o.selected).map(o=>parseFloat(o.value))  : [];
   const selShellIds = shellSel ? [...shellSel.options].filter(o=>o.selected).map(o=>parseFloat(o.value)) : [];
@@ -3377,6 +3380,7 @@ function buildLabelData() {
       const meta2 = [];
       if (showCont && containerName) meta2.push(containerName);
       meta2.push(c.totalShells+' units');
+      if (showDate && c.createdAt) meta2.push('In: '+fmtDate(c.createdAt));
       lines.push({text: meta2.join('  ·  '), size:'8px', color:'#666'});
       labels.push({lines, type:'case'});
     }
@@ -3400,6 +3404,10 @@ function buildLabelData() {
         if (meta.length) lines.push({text: meta.join('  ·  '), size:'8px', color:'#555'});
       }
       if (showCont && containerName) lines.push({text: containerName, size:'8px', color:'#666'});
+      if (showDate) {
+        const checkin = s.addedAt || (pc && pc.createdAt);
+        if (checkin) lines.push({text: 'In: '+fmtDate(checkin), size:'8px', color:'#666'});
+      }
       labels.push({lines, type:'shell'});
     }
   });
