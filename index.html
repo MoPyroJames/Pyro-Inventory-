@@ -1345,6 +1345,7 @@ function renderReportTab() {
             Show removed
           </label>
           <button class="btn-sm" style="text-transform:uppercase;font-weight:700;font-size:11px;letter-spacing:.04em" onclick="exportExcel()">&#x25BC; Export Excel</button>
+          <button class="btn-sm" style="text-transform:uppercase;font-weight:700;font-size:11px;letter-spacing:.04em" onclick="exportShellReport()">&#x25BC; Shell Report</button>
           <button class="btn-sm" style="text-transform:uppercase;font-weight:700;font-size:11px;letter-spacing:.04em" onclick="printReport()">&#x1F5A8; Print / PDF</button>
         </div>
       </div>
@@ -1377,6 +1378,42 @@ function renderReportTab() {
             <tbody>${showRows}</tbody>
           </table>
         </div>`:''}
+
+      ${(()=>{
+        const allShells = shells;
+        if (!allShells.length) return '';
+        const shellAssignmentsAll = state.data.shellAssignments||[];
+        const shellRows = [...allShells].sort((a,b)=>{
+          const pa=cases.find(c=>c.id===a.caseId), pb=cases.find(c=>c.id===b.caseId);
+          return (pa?pa.catalogNum:'').localeCompare(pb?pb.catalogNum:'') || (a.shellNum||'').localeCompare(b.shellNum||'');
+        }).map(s=>{
+          const pc = cases.find(c=>c.id===s.caseId);
+          const sa = shellAssignmentsAll.filter(a=>a.shellId===s.id);
+          const showName = sa.length ? [...new Set(sa.map(a=>{const sh=shows.find(x=>x.id===a.showId);return sh?sh.name:null;}).filter(Boolean))].join(', ') : '—';
+          const isAssigned = sa.length > 0;
+          const statusColor = s.status==='used'?'#555':s.status==='intact'?'#4ade80':'#fbbf24';
+          return `<tr>
+            <td style="font-family:var(--mono);font-size:12px">${esc(s.shellNum)}</td>
+            <td style="font-size:12px">${esc(s.desc)}</td>
+            <td style="font-family:var(--mono);font-size:11px;color:#fbbf24">${esc(pc?pc.catalogNum:'—')}</td>
+            <td style="font-size:11px;color:#888">${esc(pc?pc.name:'—')}</td>
+            <td style="font-family:var(--mono);font-size:11px">${lbs(s.newW)}</td>
+            <td><span style="font-size:11px;color:${statusColor}">${s.status}</span></td>
+            <td style="font-size:11px;color:${isAssigned?'#60a5fa':'#444'};font-weight:${isAssigned?'600':'400'}">${esc(showName)}</td>
+            <td style="font-family:var(--mono);font-size:11px;color:#666">${s.addedAt?new Date(s.addedAt).toLocaleDateString():'—'}</td>
+          </tr>`;
+        }).join('');
+        return `
+        <div class="sec" style="display:flex;align-items:center;justify-content:space-between">
+          <span>Shell Inventory (${allShells.length} shells)</span>
+        </div>
+        <div style="overflow-x:auto">
+          <table>
+            <thead><tr><th>Shell #</th><th>Description</th><th>Case #</th><th>Case Name</th><th>NEW (lbs)</th><th>Status</th><th>Assigned to Show</th><th>Check-in</th></tr></thead>
+            <tbody>${shellRows}</tbody>
+          </table>
+        </div>`;
+      })()}
     </div>`;
 }
 
@@ -3736,6 +3773,68 @@ function toggleHideFromReport(caseId) {
 }
 
 // ── Export Excel ───────────────────────────────────────────────────────────
+function exportShellReport() {
+  const {cases, shells, shellAssignments} = state.data;
+  const shows = state.shows;
+  const date = new Date().toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'});
+
+  const header = [
+    'Shell #', 'Description', 'Case Catalog #', 'Case Name', 'Manufacturer',
+    'Shell Size', 'ATF Class', 'EX #', 'NEW (lbs)', 'Status',
+    'Date Checked In', 'Assigned to Show', 'Show Date', 'Used Date'
+  ];
+
+  const rows = shells.map(s => {
+    const pc = cases.find(c => c.id === s.caseId);
+    // Find show assignments for this shell
+    const sa = (shellAssignments||[]).filter(a => a.shellId === s.id);
+    const showNames = [...new Set(sa.map(a => {
+      const sh = shows.find(x => x.id === a.showId);
+      return sh ? sh.name : null;
+    }).filter(Boolean))].join(', ');
+    const showDates = [...new Set(sa.map(a => {
+      const sh = shows.find(x => x.id === a.showId);
+      return sh && sh.date ? sh.date : null;
+    }).filter(Boolean))].join(', ');
+
+    return [
+      s.shellNum,
+      s.desc,
+      pc ? pc.catalogNum : '',
+      pc ? pc.name : '',
+      pc ? (pc.mfg||'') : '',
+      pc ? (pc.shellSize||'') : '',
+      pc ? (CLASS_LABELS[pc.cls]||pc.cls||'') : '',
+      pc ? (pc.exNum||'') : '',
+      parseFloat(lbs(s.newW)),
+      s.status,
+      s.addedAt ? new Date(s.addedAt).toLocaleDateString() : '',
+      showNames || '—',
+      showDates || '—',
+      s.usedAt ? new Date(s.usedAt).toLocaleDateString() : '—',
+    ];
+  });
+
+  // Sort: by case catalog #, then shell number
+  rows.sort((a, b) => (a[2]||'').localeCompare(b[2]||'') || (a[0]||'').localeCompare(b[0]||''));
+
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet([
+    [`Shell Inventory Report — ${date}`],
+    [`Container: ${state.container||'N/A'}  |  Licensee: ${state.licensee||'N/A'}`],
+    [],
+    header,
+    ...rows
+  ]);
+  ws['!cols'] = [14,30,14,28,16,10,12,12,10,10,14,28,12,12].map(w=>({wch:w}));
+
+  // Style header row (row 4, 0-indexed row 3)
+  XLSX.utils.book_append_sheet(wb, ws, 'Shell Inventory');
+
+  const filename = `shell_inventory_${new Date().toISOString().slice(0,10)}.xlsx`;
+  XLSX.writeFile(wb, filename);
+}
+
 function exportExcel() {
   const {cases, shells, shows, assignments} = state.data;
   const {container, licensee} = state;
