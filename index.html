@@ -343,6 +343,7 @@ function saveCurrentContainer() {
   if (c) {
     c.data = state.data;
     c.licensee = state.licensee;
+    c.container = state.container;
   }
   saveContainers();
 }
@@ -367,7 +368,7 @@ let state = {
   showForm: {name:'',date:'',location:'',notes:''},
   assignForm: {caseId:'',qty:'1',shellCaseId:'',selectedShells:{}},
   lblOpts: {mfg:true, cls:false, newW:true, ex:true, cont:false, date:true},
-  container: _containers[0].name || '',
+  container: _containers[0].container || _containers[0].name || '',
   licensee: _containers[0].licensee || '',
   logSearch: '', logType: '', logDir: '',
   invoice: {status:'idle', lines:[], error:''},
@@ -1353,8 +1354,8 @@ function renderReportTab() {
         </div>
       </div>
       <div class="form-grid" style="grid-template-columns:1fr 1fr;margin-bottom:12px">
-        <div class="fld"><label>Container / Magazine ID</label><input placeholder="e.g. MAG-001" value="${esc(container)}" oninput="state.container=this.value"></div>
-        <div class="fld"><label>Licensee Name / Company</label><input placeholder="e.g. Star Pyrotechnics LLC" value="${esc(licensee)}" oninput="state.licensee=this.value"></div>
+        <div class="fld"><label>Container / Magazine ID</label><input placeholder="e.g. MAG-001" value="${esc(container)}" oninput="state.container=this.value" onblur="save()"></div>
+        <div class="fld"><label>Licensee Name / Company</label><input placeholder="e.g. Star Pyrotechnics LLC" value="${esc(licensee)}" oninput="state.licensee=this.value" onblur="save()"></div>
       </div>
       <div class="report-meta-row">
         <span>${new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})}</span>
@@ -4036,7 +4037,7 @@ function switchContainer(id) {
   if (!next) return;
   state.activeContainerId = id;
   state.data = next.data;
-  state.container = next.name;
+  state.container = next.container || next.name;
   state.licensee = next.licensee || '';
   state.expandedCase = null;
   state.selectedCase = null;
