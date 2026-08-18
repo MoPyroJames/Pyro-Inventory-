@@ -4199,48 +4199,41 @@ function dpClear(){dp.sel=null;if(dp.cb)dp.cb(null);dpClose();}
 const SUPA_URL  = 'https://trhcgpdyzoykgdorrzbf.supabase.co';
 const SUPA_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRyaGNncGR5em95a2dkb3JyemJmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcwNTk3MjAsImV4cCI6MjEwMjYzNTcyMH0.SzuvNtcugJRo0X7IPNQu-Dh65PcOdRrvPpX1sPPYLAE';
 const SUPA_PIN_KEY = 'pyro_sync_pin';
+const SUPA_HEADERS = {
+  'apikey': SUPA_KEY,
+  'Authorization': 'Bearer ' + SUPA_KEY,
+  'Content-Type': 'application/json',
+};
 
 function syncStatus(msg, color) {
   const el = document.getElementById('sync-status');
   if (el) { el.textContent = msg; el.style.color = color || '#555'; }
 }
 
-async function supaRequest(method, data) {
-  const opts = {
-    method,
-    headers: {
-      'apikey': SUPA_KEY,
-      'Authorization': 'Bearer ' + SUPA_KEY,
-      'Content-Type': 'application/json',
-      'Prefer': method === 'POST' ? 'resolution=merge-duplicates,return=minimal' : '',
-    },
-  };
-  if (data) opts.body = JSON.stringify(data);
-  const url = SUPA_URL + '/rest/v1/inventory' + (method === 'GET' ? '?key=eq.main&select=data' : '');
-  const res = await fetch(url, opts);
-  if (!res.ok) throw new Error(await res.text());
-  return method === 'GET' ? res.json() : null;
-}
-
 function getOrSetPin() {
   let pin = localStorage.getItem(SUPA_PIN_KEY);
   if (!pin) {
-    pin = prompt('Set a 4-digit PIN for cloud sync (you\'ll need this on other devices):');
+    pin = prompt('Set a 4-digit PIN for cloud sync.\nYou will need this same PIN on other devices:');
     if (!pin) return null;
     pin = pin.trim();
     if (!/^\d{4}$/.test(pin)) { alert('PIN must be exactly 4 digits.'); return null; }
     localStorage.setItem(SUPA_PIN_KEY, pin);
+    alert('PIN set! Remember: ' + pin);
   }
   return pin;
 }
 
 function verifyPin() {
   const stored = localStorage.getItem(SUPA_PIN_KEY);
-  if (!stored) return getOrSetPin();
   const entered = prompt('Enter your 4-digit sync PIN:');
   if (!entered) return null;
-  if (entered.trim() !== stored) { alert('Incorrect PIN.'); return null; }
-  return stored;
+  if (stored && entered.trim() !== stored) {
+    alert('Incorrect PIN.');
+    return null;
+  }
+  // On a new device with no stored PIN, accept what they enter and save it
+  if (!stored) localStorage.setItem(SUPA_PIN_KEY, entered.trim());
+  return entered.trim();
 }
 
 async function cloudSave() {
@@ -4248,20 +4241,38 @@ async function cloudSave() {
   if (!pin) return;
   syncStatus('Saving…', '#fbbf24');
   try {
-    const payload = {
-      containers: JSON.parse(localStorage.getItem('fw_containers_v1')||'[]'),
-      shows: JSON.parse(localStorage.getItem('fw_shared_shows_v1')||'[]'),
-      title: localStorage.getItem('pyro_title')||'',
-      sub: localStorage.getItem('pyro_sub')||'',
+    // Bundle all localStorage data
+    const payload = JSON.stringify({
       pin,
       savedAt: new Date().toISOString(),
-    };
-    await supaRequest('POST', [{key:'main', data: JSON.stringify(payload)}]);
+      containers: localStorage.getItem('fw_containers_v1') || '[]',
+      shows: localStorage.getItem('fw_shared_shows_v1') || '[]',
+      title: localStorage.getItem('pyro_title') || '',
+      sub: localStorage.getItem('pyro_sub') || '',
+    });
+
+    // Try DELETE then INSERT (most reliable upsert)
+    await fetch(`${SUPA_URL}/rest/v1/inventory?key=eq.main`, {
+      method: 'DELETE',
+      headers: SUPA_HEADERS,
+    });
+
+    const res = await fetch(`${SUPA_URL}/rest/v1/inventory`, {
+      method: 'POST',
+      headers: { ...SUPA_HEADERS, 'Prefer': 'return=minimal' },
+      body: JSON.stringify({ key: 'main', data: payload }),
+    });
+
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error(`HTTP ${res.status}: ${err}`);
+    }
+
     syncStatus('Saved ✓', '#4ade80');
-    setTimeout(()=>syncStatus(''), 3000);
+    setTimeout(() => syncStatus(''), 3000);
   } catch(e) {
-    syncStatus('Error ✗', '#f87171');
-    alert('Cloud save failed: ' + e.message);
+    syncStatus('Failed ✗', '#f87171');
+    alert('Save failed: ' + e.message + '\n\nIn Supabase:\n1. Go to Table Editor → inventory\n2. Click the shield icon and DISABLE Row Level Security\n3. Try again');
   }
 }
 
@@ -4270,20 +4281,44 @@ async function cloudLoad() {
   if (!pin) return;
   syncStatus('Loading…', '#fbbf24');
   try {
-    const rows = await supaRequest('GET');
-    if (!rows || !rows.length) { syncStatus('No data', '#f87171'); alert('No cloud data found. Save from another device first.'); return; }
+    const res = await fetch(`${SUPA_URL}/rest/v1/inventory?key=eq.main&select=data`, {
+      method: 'GET',
+      headers: SUPA_HEADERS,
+    });
+
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error(`HTTP ${res.status}: ${err}`);
+    }
+
+    const rows = await res.json();
+    if (!rows || !rows.length) {
+      syncStatus('No data', '#f87171');
+      alert('No cloud data found.\nSave from your main device first, then load here.');
+      return;
+    }
+
     const payload = JSON.parse(rows[0].data);
-    if (payload.pin !== pin) { syncStatus('Wrong PIN ✗', '#f87171'); alert('PIN does not match the saved data.'); return; }
-    // Restore
-    localStorage.setItem('fw_containers_v1', JSON.stringify(payload.containers||[]));
-    localStorage.setItem('fw_shared_shows_v1', JSON.stringify(payload.shows||[]));
+
+    if (payload.pin !== pin) {
+      syncStatus('Wrong PIN ✗', '#f87171');
+      alert('PIN does not match. Use the same PIN you set when saving.');
+      return;
+    }
+
+    // Restore all data
+    localStorage.setItem('fw_containers_v1', payload.containers);
+    localStorage.setItem('fw_shared_shows_v1', payload.shows);
     if (payload.title) localStorage.setItem('pyro_title', payload.title);
-    if (payload.sub) localStorage.setItem('pyro_sub', payload.sub);
+    if (payload.sub)   localStorage.setItem('pyro_sub', payload.sub);
+
     syncStatus('Loaded ✓', '#4ade80');
-    setTimeout(()=>{ syncStatus(''); location.reload(); }, 800);
+    const d = new Date(payload.savedAt);
+    alert(`Data loaded! Saved on: ${d.toLocaleString()}\n\nThe app will now reload.`);
+    setTimeout(() => location.reload(), 500);
   } catch(e) {
-    syncStatus('Error ✗', '#f87171');
-    alert('Cloud load failed: ' + e.message);
+    syncStatus('Failed ✗', '#f87171');
+    alert('Load failed: ' + e.message + '\n\nIn Supabase:\n1. Go to Table Editor → inventory\n2. Click the shield icon and DISABLE Row Level Security\n3. Try again');
   }
 }
 
