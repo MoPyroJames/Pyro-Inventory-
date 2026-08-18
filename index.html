@@ -794,6 +794,17 @@ function renderShellDetail(el) {
         <div style="font-size:11px;color:#86efac;font-family:var(--mono);margin-bottom:3px">${s.addedAt?new Date(s.addedAt).toLocaleDateString():'—'}</div>
         ${dpBtn(s.addedAt||'',iso=>{updateLogTs('shell',s.id,iso);renderTab('cases')},'Set date')}
       </td>
+      <td>
+        ${(()=>{
+          const rmEntry = (state.data.removalLog||[]).find(e=>e.type==='shell'&&e.shellNum===s.shellNum);
+          const outTs = rmEntry ? rmEntry.removedAt : s.usedAt;
+          if (!outTs) return '<span style="color:#333;font-size:11px">—</span>';
+          return `<div style="font-size:11px;color:#fca5a5;font-family:var(--mono);margin-bottom:3px">${new Date(outTs).toLocaleDateString()}</div>`
+            + (rmEntry
+              ? dpBtn(rmEntry.removedAt,iso=>{updateLogTs('removal',rmEntry.id,iso);renderTab('cases')},'Set date')
+              : dpBtn(s.usedAt,iso=>{updateLogTs('shellused',s.id,iso);renderTab('cases')},'Set date'));
+        })()}
+      </td>
       <td>${usedOnCell}</td>
       <td style="font-size:12px;color:#888">${esc(s.notes||'—')}</td>
       <td>${actBtns}</td>
@@ -842,7 +853,7 @@ function renderShellDetail(el) {
       ? `<div class="card-pad empty">No shells logged individually yet.</div>`
       : `<div class="card"><div style="overflow-x:auto"><table>
           <colgroup><col style="width:13%"><col style="width:23%"><col style="width:9%"><col style="width:12%"><col style="width:16%"><col style="width:18%"><col style="width:9%"></colgroup>
-          <thead><tr><th>Shell #</th><th>Description / lot</th><th>Net Wt (lbs)</th><th>Status</th><th>Check-in</th><th>Used on</th><th>Notes</th><th></th></tr></thead>
+          <thead><tr><th>Shell #</th><th>Description / lot</th><th>Net Wt (lbs)</th><th>Status</th><th style="color:#86efac">Check-in</th><th style="color:#fca5a5">Check-out</th><th>Used on</th><th>Notes</th><th></th></tr></thead>
           <tbody>${shellRows}</tbody>
           <tfoot><tr><td colspan="2">Totals</td><td>${lbs(cShells.reduce((s,x)=>s+x.newW,0))} lbs</td><td colspan="4"></td></tr></tfoot>
         </table></div></div>`}`;
