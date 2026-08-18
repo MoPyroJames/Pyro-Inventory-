@@ -614,11 +614,11 @@ function renderCasesTab() {
     const caseCostStr = c.caseCost!=null?'$'+parseFloat(c.caseCost).toFixed(2):(c.price!=null?'$'+parseFloat(c.price).toFixed(2):'—');
     const unitCostStr = c.caseCost!=null&&c.totalShells?'$'+(c.caseCost/c.totalShells).toFixed(2):(c.price!=null?'$'+parseFloat(c.price).toFixed(2):'—');
     const unitCostTd = isEdit
-      ? `<div style="display:flex;flex-direction:column;gap:2px">
-          <input class="edit-input" type="number" min="0" step="0.01" value="${esc(state.editingCase.caseCost||'')}" oninput="state.editingCase.caseCost=this.value;renderTab(state.tab)" onkeydown="editKeydown(event)" placeholder="Case cost" style="width:90px"/>
-          <span style="font-size:10px;color:#555;font-family:var(--mono)">${state.editingCase.caseCost&&c.totalShells?'unit: $'+(parseFloat(state.editingCase.caseCost)/c.totalShells).toFixed(2):'unit: auto'}</span>
+      ? `<div style="display:flex;flex-direction:column;gap:4px">
+          <input class="edit-input" type="number" min="0" step="0.01" value="${esc(state.editingCase.caseCost||'')}" oninput="state.editingCase.caseCost=this.value;renderTab(state.tab)" onkeydown="editKeydown(event)" placeholder="Case cost $" style="width:90px"/>
+          <input class="edit-input" value="${esc(state.editingCase.purchasedFrom||'')}" oninput="state.editingCase.purchasedFrom=this.value" onkeydown="editKeydown(event)" placeholder="Purchased from" style="width:120px;font-size:11px"/>
          </div>`
-      : `<div style="font-family:var(--mono);font-size:12px"><div style="color:#e5e5e5">${caseCostStr}</div><div style="color:#555;font-size:10px">unit: ${unitCostStr}</div></div>`;
+      : `<div style="font-family:var(--mono);font-size:12px"><div style="color:#e5e5e5">${caseCostStr}</div><div style="color:#555;font-size:10px">unit: ${unitCostStr}</div>${c.purchasedFrom?`<div style="color:#60a5fa;font-size:10px;font-family:sans-serif;margin-top:2px">from: ${esc(c.purchasedFrom)}</div>`:''}</div>`;
 
     const actionBtns = isEdit
       ? `<button class="btn-sm success" onclick="saveEditingCase()">Save</button><button class="btn-sm" onclick="cancelEditCase()">Cancel</button>`
@@ -761,8 +761,11 @@ function renderShellDetail(el) {
   const shellRows = cShells.map(s => {
     const isEditS = state.editingShell && state.editingShell.id===s.id;
     const descCell = isEditS
-      ? `<input class="edit-input" value="${esc(state.editingShell.desc)}" oninput="state.editingShell.desc=this.value" onkeydown="shellEditKeydown(event)" placeholder="Description / lot" autofocus style="width:100%"/>`
-      : `<span class="editable-val" title="Click Edit to change" style="cursor:default">${esc(s.desc)}</span>`;
+      ? `<div style="display:flex;flex-direction:column;gap:4px">
+          <input class="edit-input" value="${esc(state.editingShell.desc)}" oninput="state.editingShell.desc=this.value" onkeydown="shellEditKeydown(event)" placeholder="Description / lot" autofocus style="width:100%"/>
+          <input class="edit-input" value="${esc(state.editingShell.purchasedFrom||'')}" oninput="state.editingShell.purchasedFrom=this.value" onkeydown="shellEditKeydown(event)" placeholder="Purchased from" style="width:100%;font-size:11px"/>
+         </div>`
+      : `<div><span class="editable-val" title="Click Edit to change" style="cursor:default">${esc(s.desc)}</span>${s.purchasedFrom?`<div style="font-size:10px;color:#60a5fa;margin-top:2px">from: ${esc(s.purchasedFrom)}</div>`:''}</div>`;
     const newWCell = isEditS
       ? `<input class="edit-input" type="number" min=".0001" step=".0001" value="${esc(state.editingShell.newW)}" oninput="state.editingShell.newW=this.value" onkeydown="shellEditKeydown(event)" style="width:90px"/>`
       : `<span class="editable-val" onclick="startEditShell(${s.id})">${lbs(s.newW)}</span>`;
@@ -1853,7 +1856,7 @@ function addShellCount(id) { adjustRemaining(id,1); }
 function startEditCase(id) {
   const c = state.data.cases.find(x=>x.id===id);
   if (!c) return;
-  state.editingCase = {id:c.id, name:c.name, mfg:c.mfg||'', exNum:c.exNum||'', productType:c.productType||'Shell', newW:String((c.newW/16).toFixed(4)), caseCost:c.caseCost!=null?String(c.caseCost):(c.price!=null?String(c.price):'')};
+  state.editingCase = {id:c.id, name:c.name, mfg:c.mfg||'', exNum:c.exNum||'', productType:c.productType||'Shell', newW:String((c.newW/16).toFixed(4)), caseCost:c.caseCost!=null?String(c.caseCost):(c.price!=null?String(c.price):''), purchasedFrom:c.purchasedFrom||''};
   renderTab('cases');
 }
 function cancelEditCase() { state.editingCase=null; renderTab('cases'); }
@@ -1870,6 +1873,7 @@ function saveEditingCase() {
     const wOz = parseFloat(state.editingCase.newW);
     if (wOz>0) c.newW = wOz*16;
     c.caseCost = parseFloat(state.editingCase.caseCost) || null;
+    c.purchasedFrom = state.editingCase.purchasedFrom?.trim()||null;
   }
   state.editingCase = null;
   save(); renderTab(state.tab);
@@ -2024,7 +2028,7 @@ function updateShellStatus(id, newStatus) {
 function startEditShell(id) {
   const s = state.data.shells.find(x=>x.id===id);
   if (!s) return;
-  state.editingShell = {id:s.id, newW:String((s.newW/16).toFixed(4)), desc:s.desc};
+  state.editingShell = {id:s.id, newW:String((s.newW/16).toFixed(4)), desc:s.desc, purchasedFrom:s.purchasedFrom||''};
   renderTab('cases');
 }
 function shellEditKeydown(e) {
@@ -2049,6 +2053,7 @@ function saveEditingShell() {
     const lbsVal = parseFloat(state.editingShell.newW);
     if (lbsVal>0) s.newW = lbsVal*16;
     if (state.editingShell.desc.trim()) s.desc = state.editingShell.desc.trim();
+    s.purchasedFrom = state.editingShell.purchasedFrom?.trim()||null;
   }
   state.editingShell = null;
   save(); renderTab('cases');
