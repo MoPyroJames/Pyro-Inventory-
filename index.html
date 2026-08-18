@@ -1102,6 +1102,9 @@ function renderAddTab() {
   el.innerHTML = `
     <div class="sec">Add case manually</div>
     <div class="card-pad">
+      ${caseForm.isSingle ? `<div style="background:#0d1f0d;border:1px solid #1a3a1a;border-radius:6px;padding:8px 12px;margin-bottom:10px;font-size:12px;color:#86efac;font-family:var(--mono)">
+        Single unit mode — Shell ID will be auto-generated (e.g. <strong>${new Date().getFullYear()}-XXXX</strong>). No case ID needed.
+      </div>` : ''}
       <div class="form-grid" style="grid-template-columns:2fr 1.2fr 0.7fr 0.6fr 1fr 1fr 0.9fr 0.7fr 0.7fr 0.7fr;align-items:flex-end">
         <div class="fld"><label>Product description</label><input placeholder="e.g. 3in Red Peony shell" value="${esc(caseForm.name)}" oninput="state.caseForm.name=this.value;state.caseForm.shellSize=state.caseForm.shellSize||extractShellSize(this.value)"></div>
         <div class="fld"><label>Manufacturer</label><input placeholder="e.g. Acme Pyro" value="${esc(caseForm.mfg)}" oninput="state.caseForm.mfg=this.value"></div>
@@ -1211,7 +1214,7 @@ function renderAddTab() {
           oninput="state.caseForm.notes=this.value">${esc(caseForm.notes||'')}</textarea>
       </div>
       ${caseErr?`<div class="err-txt">${esc(caseErr)}</div>`:''}
-      <div class="help-txt">Catalog number auto-generated as <span style="font-family:var(--mono);color:var(--amber)">2026-XXXX</span>.</div>
+      <div class="help-txt">${caseForm.isSingle ? `Shell ID auto-generated as <span style="font-family:var(--mono);color:var(--amber)">${new Date().getFullYear()}-XXXX</span>. No case ID needed for single units.` : `Catalog number auto-generated as <span style="font-family:var(--mono);color:var(--amber)">2026-XXXX</span>.`}</div>
     </div>`;
 }
 
@@ -1300,7 +1303,7 @@ function renderReportTab() {
       </td>
       <td style="text-align:center;white-space:nowrap">
         <button onclick="toggleHideFromReport('${c.id}')" title="${c.hideFromReport?'Restore to ATF report':'Remove from ATF report'}"
-          style="font-size:10px;padding:2px 7px;border-radius:3px;border:1px solid ${c.hideFromReport?'#16a34a':'#7f1d1d'};background:${c.hideFromReport?'#052e16':'#1a0505'};color:${c.hideFromReport?'#4ade80':'#f87171'};cursor:pointer;white-space:nowrap">
+          style="font-size:11px;padding:3px 10px;border-radius:4px;border:1px solid ${c.hideFromReport?'#16a34a':'#7f1d1d'};background:${c.hideFromReport?'#052e16':'#1a0505'};color:${c.hideFromReport?'#4ade80':'#f87171'};cursor:pointer;white-space:nowrap;font-weight:600">
           ${c.hideFromReport ? '✓ Restore' : '✕ Remove'}
         </button>
       </td>
@@ -1358,7 +1361,7 @@ function renderReportTab() {
       <div style="overflow-x:auto;margin-bottom:20px">
         <table>
           <colgroup><col style="width:8%"><col style="width:14%"><col style="width:5%"><col style="width:8%"><col style="width:6%"><col style="width:6%"><col style="width:7%"><col style="width:7%"><col style="width:8%"><col style="width:6%"><col style="width:10%"><col style="width:8%"><col style="width:7%"></colgroup>
-          <thead><tr><th>Catalog #</th><th>Description</th><th>Class</th><th>Manufacturer</th><th>EX #</th><th>Type</th><th>NEW/unit (lbs)</th><th>Units rem/tot</th><th>Case NEW (lbs)</th><th>Status</th><th>Assigned to show(s)</th><th style="color:#86efac">Check-in</th><th style="color:#fca5a5">Check-out</th><th></th></tr></thead>
+          <thead><tr><th>Catalog #</th><th>Description</th><th>Class</th><th>Manufacturer</th><th>EX #</th><th>Type</th><th>NEW/unit (lbs)</th><th>Units rem/tot</th><th>Case NEW (lbs)</th><th>Status</th><th>Assigned to show(s)</th><th style="color:#86efac">Check-in</th><th style="color:#fca5a5">Check-out</th><th style="color:#f87171">Remove</th></tr></thead>
           <tbody>${caseRows||`<tr><td colspan="13" class="empty">No inventory recorded.</td></tr>`}</tbody>
           ${cases.length>0?`<tfoot><tr><td colspan="7">Totals</td><td style="font-family:var(--mono)">${tRem}/${tTot}</td><td style="font-family:var(--mono)">${lbs(tNEW)} lbs</td><td colspan="4"></td></tr></tfoot>`:''}
         </table>
@@ -1429,9 +1432,11 @@ function autoLogShells(c) {
   } else {
     const baseDesc = c.name.trim();
     for (let i = 0; i < c.totalShells; i++) {
+      // Single units: shell ID = catalog number (no suffix needed, it IS the shell)
+      const shellNum = c.isSingle ? c.catalogNum : `${suffix}-${i + 1}`;
       state.data.shells.push({
         id: now + i + Math.floor(Math.random()*1000),
-        caseId: c.id, shellNum: `${suffix}-${i + 1}`,
+        caseId: c.id, shellNum,
         desc: baseDesc, newW: baseNewW,
         notes: '', status: 'intact',
         addedAt: c.createdAt || new Date().toISOString()
