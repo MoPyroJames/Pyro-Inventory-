@@ -232,7 +232,7 @@ select option{background:var(--bg3);color:var(--text2)}
   </div>
   <!-- Label print modal -->
   <div id="label-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:1000;align-items:center;justify-content:center">
-    <div style="background:#111;border:1px solid #2a2a2a;border-radius:10px;padding:24px;width:560px;max-width:95vw;max-height:85vh;overflow-y:auto" id="label-modal-body"></div>
+    <div style="background:#111;border:1px solid #2a2a2a;border-radius:10px;padding:24px;width:min(1100px,96vw);max-height:92vh;overflow-y:auto;overflow-x:hidden" id="label-modal-body"></div>
   </div>
 
   <!-- Metrics -->
@@ -3299,7 +3299,7 @@ function openLabelModal() {
   if (!modal || !body) return;
 
   // Widen the modal for two-panel layout
-  body.parentElement.style.width = '900px';
+  body.parentElement.style.width = 'min(1100px, 96vw)';
   window._lblStartPos = 0;
 
   const cases  = state.data.cases.filter(c=>caseDisplayStatus(c)!=='used');
@@ -3317,7 +3317,7 @@ function openLabelModal() {
       <button class="btn-sm" onclick="closeLabelModal()">✕</button>
     </div>
 
-    <div style="display:grid;grid-template-columns:300px 1fr;gap:16px">
+    <div style="display:grid;grid-template-columns:340px 1fr;gap:20px">
       <!-- LEFT: config -->
       <div>
         <div style="font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#888;margin-bottom:5px">Case ID labels</div>
@@ -3325,7 +3325,7 @@ function openLabelModal() {
           <button class="btn-sm" style="font-size:10px" onclick="labelSelectAll('case-sel');updateLabelPreview()">All</button>
           <button class="btn-sm" style="font-size:10px" onclick="labelSelectNone('case-sel');updateLabelPreview()">None</button>
         </div>
-        <select id="case-sel" multiple onchange="updateLabelPreview()" style="width:100%;height:120px;background:#0d0d0d;border:1px solid #2a2a2a;border-radius:5px;color:#e5e5e5;font-size:11px;font-family:var(--mono);padding:3px">
+        <select id="case-sel" multiple onchange="updateLabelPreview()" style="width:100%;height:160px;background:#0d0d0d;border:1px solid #2a2a2a;border-radius:5px;color:#e5e5e5;font-size:11px;font-family:var(--mono);padding:3px">
           ${caseOpts||'<option disabled>No active cases</option>'}
         </select>
         <label style="display:flex;align-items:center;gap:5px;font-size:11px;color:#888;cursor:pointer;margin-top:5px">
@@ -3339,7 +3339,7 @@ function openLabelModal() {
           <button class="btn-sm" style="font-size:10px" onclick="labelSelectAll('shell-sel');updateLabelPreview()">All</button>
           <button class="btn-sm" style="font-size:10px" onclick="labelSelectNone('shell-sel');updateLabelPreview()">None</button>
         </div>
-        <select id="shell-sel" multiple onchange="updateLabelPreview()" style="width:100%;height:120px;background:#0d0d0d;border:1px solid #2a2a2a;border-radius:5px;color:#e5e5e5;font-size:11px;font-family:var(--mono);padding:3px">
+        <select id="shell-sel" multiple onchange="updateLabelPreview()" style="width:100%;height:160px;background:#0d0d0d;border:1px solid #2a2a2a;border-radius:5px;color:#e5e5e5;font-size:11px;font-family:var(--mono);padding:3px">
           ${shellOpts||'<option disabled>No shells logged</option>'}
         </select>
         <label style="display:flex;align-items:center;gap:5px;font-size:11px;color:#888;cursor:pointer;margin-top:5px">
@@ -3370,7 +3370,7 @@ function openLabelModal() {
       <div>
         <div id="lbl-start-picker" style="margin-bottom:10px"></div>
         <div style="font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#888;margin-bottom:8px">Preview <span id="lbl-count" style="color:#555;font-weight:400;text-transform:none;letter-spacing:0">— select items to preview</span></div>
-        <div id="lbl-preview" style="background:#f5f5f5;border:1px solid #ddd;border-radius:6px;padding:8px;overflow-y:auto;max-height:520px;min-height:120px">
+        <div id="lbl-preview" style="background:#f5f5f5;border:1px solid #ddd;border-radius:6px;padding:8px;overflow-y:auto;max-height:calc(92vh - 220px);min-height:200px">
           <div style="color:#999;font-size:12px;font-family:Arial,sans-serif;text-align:center;padding:40px 0">Select cases or shells on the left to see label preview</div>
         </div>
       </div>
