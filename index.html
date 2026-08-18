@@ -2567,10 +2567,14 @@ function renderLogTab() {
       <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--amber);padding-bottom:6px;border-bottom:1px solid var(--border1)">
         Transaction Log — ${txns.length} entr${txns.length!==1?'ies':'y'}
       </div>
-      ${removalLog.length > 0 ? (state.clearLogConfirm
-        ? `<div style="display:flex;align-items:center;gap:8px"><span style="font-size:12px;color:#f87171">Clear all check-outs? Cannot be undone.</span><button class="btn-danger" style="font-size:11px" onclick="clearAllLog()">Yes, clear</button><button class="btn-sm" style="font-size:11px" onclick="cancelClearLog()">Cancel</button></div>`
-        : `<button class="btn-danger" style="font-size:11px" onclick="clearAllLog()">Clear check-out log</button>`)
-      : ''}
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+        <button class="btn-sm" style="font-size:11px;text-transform:uppercase;font-weight:700;letter-spacing:.04em" onclick="exportLog('in')">&#x25BC; In Stock</button>
+        <button class="btn-sm" style="font-size:11px;text-transform:uppercase;font-weight:700;letter-spacing:.04em" onclick="exportLog('out')">&#x25BC; Checked Out</button>
+        ${removalLog.length > 0 ? (state.clearLogConfirm
+          ? `<div style="display:flex;align-items:center;gap:8px"><span style="font-size:12px;color:#f87171">Clear all check-outs? Cannot be undone.</span><button class="btn-danger" style="font-size:11px" onclick="clearAllLog()">Yes, clear</button><button class="btn-sm" style="font-size:11px" onclick="cancelClearLog()">Cancel</button></div>`
+          : `<button class="btn-danger" style="font-size:11px" onclick="clearAllLog()">Clear check-out log</button>`)
+        : ''}
+      </div>
     </div>
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px">
       <div class="pill green"><div class="pill-lbl">Check-ins</div><div class="pill-val">${checkIns.length}</div></div>
@@ -3775,6 +3779,117 @@ function printLabels() {
 }
 
 
+
+// ── Export Log ──────────────────────────────────────────────────────────────
+function exportLog(direction) {
+  const {cases, shells, assignments, shellAssignments, removalLog} = state.data;
+  const shows = state.shows;
+  const date = new Date().toISOString().slice(0,10);
+  const wb = XLSX.utils.book_new();
+
+  if (direction === 'in') {
+    // Items still in container = check-ins that have NOT been checked out
+    const checkedOutCatalogs = new Set((removalLog||[]).filter(e=>e.type==='case').map(e=>e.catalogNum));
+    const checkedOutShellNums = new Set((removalLog||[]).filter(e=>e.type==='shell').map(e=>e.shellNum));
+
+    const header = ['Type','ID / Catalog #','Description','Manufacturer','ATF Class','EX #','Shell Size','NEW (lbs)','Status','Assigned to Show','Check-in Date','Container','Licensee'];
+
+    const rows = [];
+
+    // Cases still in container
+    cases.filter(c => !c.isSingle && !checkedOutCatalogs.has(c.catalogNum) && c.status !== 'used').forEach(c => {
+      const sa = (assignments||[]).filter(a=>a.caseId===c.id);
+      const showName = sa.length ? [...new Set(sa.map(a=>{const sh=shows.find(x=>x.id===a.showId);return sh?sh.name:null;}).filter(Boolean))].join(', ') : '';
+      rows.push([
+        'Case', c.catalogNum, c.name, c.mfg||'', CLASS_LABELS[c.cls]||c.cls||'',
+        c.exNum||'', c.shellSize||'', parseFloat(lbs(c.newW)),
+        c.status, showName,
+        c.createdAt ? new Date(c.createdAt).toLocaleDateString() : '',
+        state.container||'', state.licensee||''
+      ]);
+    });
+
+    // Single units still in container
+    cases.filter(c => c.isSingle && c.status !== 'used').forEach(c => {
+      const s = shells.find(x=>x.caseId===c.id);
+      if (!s || checkedOutShellNums.has(s.shellNum)) return;
+      const sa = (shellAssignments||[]).filter(a=>a.shellId===s.id);
+      const showName = sa.length ? [...new Set(sa.map(a=>{const sh=shows.find(x=>x.id===a.showId);return sh?sh.name:null;}).filter(Boolean))].join(', ') : '';
+      rows.push([
+        'Single Shell', s.shellNum, c.name, c.mfg||'', CLASS_LABELS[c.cls]||c.cls||'',
+        c.exNum||'', c.shellSize||'', parseFloat(lbs(s.newW)),
+        s.status, showName,
+        c.createdAt ? new Date(c.createdAt).toLocaleDateString() : '',
+        state.container||'', state.licensee||''
+      ]);
+    });
+
+    // Individual logged shells still in container
+    shells.filter(s => !checkedOutShellNums.has(s.shellNum) && s.status !== 'used').forEach(s => {
+      const pc = cases.find(c=>c.id===s.caseId);
+      if (!pc || pc.isSingle) return; // singles handled above
+      const sa = (shellAssignments||[]).filter(a=>a.shellId===s.id);
+      const showName = sa.length ? [...new Set(sa.map(a=>{const sh=shows.find(x=>x.id===a.showId);return sh?sh.name:null;}).filter(Boolean))].join(', ') : '';
+      rows.push([
+        'Shell', s.shellNum, s.desc, pc.mfg||'', CLASS_LABELS[pc.cls]||pc.cls||'',
+        pc.exNum||'', pc.shellSize||'', parseFloat(lbs(s.newW)),
+        s.status, showName,
+        s.addedAt ? new Date(s.addedAt).toLocaleDateString() : '',
+        state.container||'', state.licensee||''
+      ]);
+    });
+
+    rows.sort((a,b) => (a[1]||'').localeCompare(b[1]||''));
+    const ws = XLSX.utils.aoa_to_sheet([
+      [`In-Stock Log — ${state.container||'Container'} — ${date}`],
+      [`Licensee: ${state.licensee||'N/A'}`],
+      [],
+      header,
+      ...rows
+    ]);
+    ws['!cols'] = [10,14,30,14,10,10,8,10,10,20,14,16,20].map(w=>({wch:w}));
+    XLSX.utils.book_append_sheet(wb, ws, 'In Stock');
+    XLSX.writeFile(wb, `in_stock_log_${date}.xlsx`);
+
+  } else {
+    // Items that were checked in and have been checked out
+    const header = ['Type','ID / Catalog #','Description','Manufacturer','ATF Class','EX #','Shell Size','NEW (lbs)','Check-in Date','Check-out Date','Show(s) Used On','Auto-marked','Container','Licensee'];
+
+    const rows = (removalLog||[]).map(e => {
+      const checkinDate = e.type === 'case'
+        ? (cases.find(c=>c.catalogNum===e.catalogNum)?.createdAt || '')
+        : (shells.find(s=>s.shellNum===e.shellNum)?.addedAt || '');
+      const showUsed = e.shows && e.shows.length ? e.shows.join(', ') : (e.usedOnShow||'');
+      return [
+        e.type==='case' ? 'Case' : 'Shell',
+        e.type==='case' ? e.catalogNum : e.shellNum,
+        e.type==='case' ? e.name : e.desc,
+        e.mfg||'',
+        CLASS_LABELS[e.cls]||e.cls||'',
+        e.exNum||'',
+        '',
+        parseFloat(lbs(e.newW)),
+        checkinDate ? new Date(checkinDate).toLocaleDateString() : '',
+        e.removedAt ? new Date(e.removedAt).toLocaleDateString() : '',
+        showUsed||'',
+        e.autoMarked ? 'Yes' : 'No',
+        state.container||'', state.licensee||''
+      ];
+    });
+
+    rows.sort((a,b) => (a[9]||'').localeCompare(b[9]||'')); // sort by check-out date
+    const ws = XLSX.utils.aoa_to_sheet([
+      [`Checked-Out Log — ${state.container||'Container'} — ${date}`],
+      [`Licensee: ${state.licensee||'N/A'}`],
+      [],
+      header,
+      ...rows
+    ]);
+    ws['!cols'] = [10,14,30,14,10,10,8,10,14,14,20,10,16,20].map(w=>({wch:w}));
+    XLSX.utils.book_append_sheet(wb, ws, 'Checked Out');
+    XLSX.writeFile(wb, `checked_out_log_${date}.xlsx`);
+  }
+}
 
 // ── Export Show Data ──────────────────────────────────────────────────────
 function exportShowData() {
