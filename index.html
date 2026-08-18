@@ -3008,7 +3008,7 @@ async function invoiceProcess(file) {
     const mediaType = file.type === 'image/jpg' ? 'image/jpeg' : file.type;
 
     // Keep prompt concise — extract only from invoice, no catalog matching
-    const prompt = `You are reading a fireworks invoice, sales order, or shipment manifest. Extract every product line item and return ONLY a valid JSON array with no markdown fences, no explanation.
+    const systemPrompt = `You are reading a fireworks invoice, sales order, or shipment manifest. Extract every product line item and return ONLY a valid JSON array with no markdown fences, no explanation.
 
 Each element must have exactly these fields:
 {
@@ -3040,11 +3040,11 @@ Important rules:
     const contentParts = isPdf
       ? [
           {type:'document', source:{type:'base64', media_type:'application/pdf', data:b64}},
-          {type:'text', text:prompt}
+          {type:'text', text:systemPrompt}
         ]
       : [
           {type:'image', source:{type:'base64', media_type:mediaType, data:b64}},
-          {type:'text', text:prompt}
+          {type:'text', text:systemPrompt}
         ];
 
     // PDF needs the pdfs beta header
