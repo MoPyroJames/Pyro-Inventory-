@@ -4196,9 +4196,252 @@ function dpApply() {
 function dpClear(){dp.sel=null;if(dp.cb)dp.cb(null);dpClose();}
 
 // ── Cloud Sync (Supabase) ──────────────────────────────────────────────────
-const SUPA_URL  = 'https://trhcgpdyzoykgdorrzbf.supabase.co';
-const SUPA_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRyaGNncGR5em95a2dkb3JyemJmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcwNTk3MjAsImV4cCI6MjEwMjYzNTcyMH0.SzuvNtcugJRo0X7IPNQu-Dh65PcOdRrvPpX1sPPYLAE';
-const SUPA_PIN_KEY = 'pyro_sync_pin';
+const SUPA_URL = 'https://trhcgpdyzoykgdorrzbf.supabase.co';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRyaGNncGR5em95a2dkb3JyemJmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcwNTk3MjAsImV4cCI6MjEwMjYzNTcyMH0.SzuvNtcugJRo0X7IPNQu-Dh65PcOdRrvPpX1sPPYLAE';
+const JBIN_PIN_KEY = 'pyro_sync_pin';
+const JBIN_BIN_KEY = 'pyro_sync_bin';
+
+function syncStatus(msg, color) {
+  const el = document.getElementById('sync-status');
+  if (el) { el.textContent = msg; el.style.color = color || '#555'; }
+}
+
+function getOrSetPin() {
+  let pin = localStorage.getItem(JBIN_PIN_KEY);
+  if (!pin) {
+    pin = prompt('Set a 4-digit PIN for cloud sync.\nYou will need this same PIN on other devices:');
+    if (!pin) return null;
+    pin = pin.trim();
+    if (!/^\d{4}$/.test(pin)) { alert('PIN must be exactly 4 digits.'); return null; }
+    localStorage.setItem(JBIN_PIN_KEY, pin);
+    alert('PIN saved: ' + pin + '\nUse this PIN on all devices.');
+  }
+  return pin;
+}
+
+function verifyPin() {
+  const entered = prompt('Enter your 4-digit sync PIN:');
+  if (!entered) return null;
+  return entered.trim();
+}
+
+const SB = {
+  headers: {
+    'apikey': SUPA_KEY,
+    'Authorization': 'Bearer ' + SUPA_KEY,
+    'Content-Type': 'application/json',
+  },
+  async upsert(payload) {
+    // DELETE then INSERT is most reliable
+    await fetch(`${SUPA_URL}/rest/v1/inventory?key=eq.main`, {
+      method: 'DELETE', headers: this.headers,
+    });
+    const res = await fetch(`${SUPA_URL}/rest/v1/inventory`, {
+      method: 'POST',
+      headers: { ...this.headers, 'Prefer': 'return=minimal' },
+      body: JSON.stringify({ key: 'main', data: JSON.stringify(payload) }),
+    });
+    if (!res.ok) throw new Error(`Save error ${res.status}: ${await res.text()}`);
+  },
+  async get() {
+    const res = await fetch(`${SUPA_URL}/rest/v1/inventory?key=eq.main&select=data`, {
+      method: 'GET', headers: this.headers,
+    });
+    if (!res.ok) throw new Error(`Load error ${res.status}: ${await res.text()}`);
+    const rows = await res.json();
+    return rows && rows.length ? JSON.parse(rows[0].data) : null;
+  },
+};
+
+async function cloudSave() {
+  const pin = getOrSetPin();
+  if (!pin) return;
+  syncStatus('Saving…', '#fbbf24');
+  try {
+    await SB.upsert({
+      pin,
+      savedAt: new Date().toISOString(),
+      containers: localStorage.getItem('fw_containers_v1') || '[]',
+      shows: localStorage.getItem('fw_shared_shows_v1') || '[]',
+      title: localStorage.getItem('pyro_title') || '',
+      sub: localStorage.getItem('pyro_sub') || '',
+    });
+    syncStatus('Saved ✓', '#4ade80');
+    setTimeout(() => syncStatus(''), 3000);
+  } catch(e) {
+    syncStatus('Failed ✗', '#f87171');
+    alert('Save failed: ' + e.message + '\n\nFix: In Supabase → SQL Editor → run:\n\nALTER TABLE inventory DISABLE ROW LEVEL SECURITY;\nGRANT ALL ON inventory TO anon;');
+  }
+}
+
+async function cloudLoad() {
+  const pin = verifyPin();
+  if (!pin) return;
+  syncStatus('Loading…', '#fbbf24');
+  try {
+    const payload = await SB.get();
+    if (!payload) {
+      syncStatus('No data', '#f87171');
+      alert('No cloud data found. Save from your main device first.');
+      return;
+    }
+    if (payload.pin !== pin) {
+      syncStatus('Wrong PIN ✗', '#f87171');
+      alert('Wrong PIN. Use the same PIN you set when saving.');
+      return;
+    }
+    localStorage.setItem('fw_containers_v1', payload.containers);
+    localStorage.setItem('fw_shared_shows_v1', payload.shows);
+    if (payload.title) localStorage.setItem('pyro_title', payload.title);
+    if (payload.sub)   localStorage.setItem('pyro_sub', payload.sub);
+    syncStatus('Loaded ✓', '#4ade80');
+    alert('Loaded! Saved on: ' + new Date(payload.savedAt).toLocaleString() + '\n\nApp will reload.');
+    setTimeout(() => location.reload(), 500);
+  } catch(e) {
+    syncStatus('Failed ✗', '#f87171');
+    alert('Load failed: ' + e.message + '\n\nFix: In Supabase → SQL Editor → run:\n\nALTER TABLE inventory DISABLE ROW LEVEL SECURITY;\nGRANT ALL ON inventory TO anon;');
+  }
+}
+
+function syncStatus(msg, color) {
+  const el = document.getElementById('sync-status');
+  if (el) { el.textContent = msg; el.style.color = color || '#555'; }
+}
+
+function getOrSetPin() {
+  let pin = localStorage.getItem(JBIN_PIN_KEY);
+  if (!pin) {
+    pin = prompt('Set a 4-digit PIN for cloud sync.\nYou will need this same PIN on other devices:');
+    if (!pin) return null;
+    pin = pin.trim();
+    if (!/^\d{4}$/.test(pin)) { alert('PIN must be exactly 4 digits.'); return null; }
+    localStorage.setItem(JBIN_PIN_KEY, pin);
+    alert('PIN saved: ' + pin + '\nUse this PIN on all devices.');
+  }
+  return pin;
+}
+
+function verifyPin() {
+  const entered = prompt('Enter your 4-digit sync PIN:');
+  if (!entered) return null;
+  return entered.trim();
+}
+
+async function cloudSave() {
+  const pin = getOrSetPin();
+  if (!pin) return;
+
+  // Get API key from user if not set
+  let apiKey = localStorage.getItem('pyro_jbin_apikey');
+  if (!apiKey) {
+    apiKey = prompt('Enter your JSONBin.io Master Key.\n\nGet one free at jsonbin.io → Sign up → API Keys → Master Key.\nIt starts with $2a$10$...');
+    if (!apiKey) return;
+    localStorage.setItem('pyro_jbin_apikey', apiKey.trim());
+    apiKey = apiKey.trim();
+  }
+
+  syncStatus('Saving…', '#fbbf24');
+  try {
+    const payload = {
+      pin,
+      savedAt: new Date().toISOString(),
+      containers: localStorage.getItem('fw_containers_v1') || '[]',
+      shows: localStorage.getItem('fw_shared_shows_v1') || '[]',
+      title: localStorage.getItem('pyro_title') || '',
+      sub: localStorage.getItem('pyro_sub') || '',
+    };
+
+    const binId = localStorage.getItem(JBIN_BIN_KEY);
+    let res, url, method;
+
+    if (binId) {
+      // Update existing bin
+      url = `https://api.jsonbin.io/v3/b/${binId}`;
+      method = 'PUT';
+    } else {
+      // Create new bin
+      url = 'https://api.jsonbin.io/v3/b';
+      method = 'POST';
+    }
+
+    res = await fetch(url, {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Master-Key': apiKey,
+        'X-Bin-Name': 'pyro-inventory',
+        'X-Bin-Private': 'true',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
+    const json = await res.json();
+
+    // Save bin ID for future updates
+    const id = json.metadata?.id || json.record?.id;
+    if (id) localStorage.setItem(JBIN_BIN_KEY, id);
+
+    syncStatus('Saved ✓', '#4ade80');
+    const binIdSaved = localStorage.getItem(JBIN_BIN_KEY);
+    alert(`Saved to cloud! ✓\n\nBin ID: ${binIdSaved}\n\nOn your other device, click Load and enter:\n• This Bin ID: ${binIdSaved}\n• Your PIN: ${pin}\n• Your API key`);
+    setTimeout(() => syncStatus(''), 5000);
+  } catch(e) {
+    syncStatus('Failed ✗', '#f87171');
+    alert('Save failed: ' + e.message);
+  }
+}
+
+async function cloudLoad() {
+  const pin = verifyPin();
+  if (!pin) return;
+
+  let apiKey = localStorage.getItem('pyro_jbin_apikey');
+  if (!apiKey) {
+    apiKey = prompt('Enter your JSONBin.io Master Key:');
+    if (!apiKey) return;
+    localStorage.setItem('pyro_jbin_apikey', apiKey.trim());
+    apiKey = apiKey.trim();
+  }
+
+  let binId = localStorage.getItem(JBIN_BIN_KEY);
+  if (!binId) {
+    binId = prompt('Enter your Bin ID (shown when you saved from your main device):');
+    if (!binId) return;
+    localStorage.setItem(JBIN_BIN_KEY, binId.trim());
+    binId = binId.trim();
+  }
+
+  syncStatus('Loading…', '#fbbf24');
+  try {
+    const res = await fetch(`https://api.jsonbin.io/v3/b/${binId}/latest`, {
+      headers: { 'X-Master-Key': apiKey },
+    });
+
+    if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
+    const json = await res.json();
+    const payload = json.record;
+
+    if (payload.pin !== pin) {
+      syncStatus('Wrong PIN ✗', '#f87171');
+      alert('Wrong PIN. Use the same PIN you set when saving.');
+      return;
+    }
+
+    localStorage.setItem('fw_containers_v1', payload.containers);
+    localStorage.setItem('fw_shared_shows_v1', payload.shows);
+    if (payload.title) localStorage.setItem('pyro_title', payload.title);
+    if (payload.sub)   localStorage.setItem('pyro_sub', payload.sub);
+
+    syncStatus('Loaded ✓', '#4ade80');
+    const d = new Date(payload.savedAt);
+    alert(`Loaded! Data from: ${d.toLocaleString()}\n\nApp will reload now.`);
+    setTimeout(() => location.reload(), 500);
+  } catch(e) {
+    syncStatus('Failed ✗', '#f87171');
+    alert('Load failed: ' + e.message + '\n\nCheck your Bin ID and API key are correct.');
+  }
+}
 const SUPA_HEADERS = {
   'apikey': SUPA_KEY,
   'Authorization': 'Bearer ' + SUPA_KEY,
