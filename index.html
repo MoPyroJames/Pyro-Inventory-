@@ -3849,7 +3849,7 @@ function printLabels() {
     const inner = lines.map(l =>
       `<div style="font-size:${l.size};font-weight:${l.weight||'400'};color:${l.color||'#000'};font-family:${l.mono?'monospace':'Arial,sans-serif'};line-height:1.15;${l.wrap?'white-space:normal;word-break:break-word;':'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'}max-width:100%">${l.text}</div>`
     ).join('');
-    labelHTML += `<div class="lbl" style="border-left:4pt solid ${borderColor}">${inner}</div>`;
+    labelHTML += `<div class="lbl" style="background:linear-gradient(to right, ${borderColor} 4pt, #fff 4pt);-webkit-print-color-adjust:exact;print-color-adjust:exact;color-adjust:exact">${inner}</div>`;
   });
 
   const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
@@ -3857,11 +3857,11 @@ function printLabels() {
 <style>
   @page { size: letter; margin: 0; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: Arial, sans-serif; background: #fff; }
+  body { font-family: Arial, sans-serif; background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; color-adjust: exact; }
   .sheet {
     width: 8.5in;
     padding-top: 0.5in;
-    padding-left: 0.1875in;
+    padding-left: 0.3125in;
     display: grid;
     grid-template-columns: repeat(3, 2.625in);
     grid-template-rows: repeat(10, 1in);
@@ -3871,13 +3871,14 @@ function printLabels() {
   .lbl {
     width: 2.625in;
     height: 1in;
-    padding: 5pt 8pt;
+    padding: 5pt 8pt 5pt 10pt;
     display: flex;
     flex-direction: column;
     justify-content: center;
     overflow: hidden;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
+    color-adjust: exact;
   }
   @media print { .no-print { display: none !important; } }
 </style>
