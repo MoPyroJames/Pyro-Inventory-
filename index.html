@@ -2170,9 +2170,10 @@ function printReport() {
     const shellRows=cShells.map(s=>{
       const sIn = s.addedAt ? (()=>{const d=s.addedAt.slice(0,10);const [y,m,day]=d.split('-');return `${m}/${day}/${y}`;})() : checkinStr;
       const sUsed = s.usedAt ? (()=>{const d=s.usedAt.slice(0,10);const [y,m,day]=d.split('-');return `${m}/${day}/${y}`;})() : '—';
-      return `<tr style="background:#f8f8f8"><td style="padding:3px 8px 3px 28px;font-size:11px;color:#555;border:1px solid #eee;font-family:monospace">${s.shellNum}</td><td style="padding:3px 8px;font-size:11px;color:#555;border:1px solid #eee">${s.desc}</td><td colspan="5" style="border:1px solid #eee"></td><td style="padding:3px 8px;font-size:11px;color:#555;border:1px solid #eee;text-align:right">${lbs(s.newW)}</td><td style="padding:3px 8px;font-size:11px;color:#555;border:1px solid #eee">${s.status}</td><td style="border:1px solid #eee"></td><td style="padding:3px 8px;font-size:11px;color:#555;border:1px solid #eee;font-family:monospace">${sIn}</td><td style="padding:3px 8px;font-size:11px;color:#555;border:1px solid #eee;font-family:monospace">${sUsed}</td></tr>`;
+      return `<tr class="shell-row"><td>${s.shellNum}</td><td>${s.desc}</td><td colspan="5"></td><td style="text-align:right">${lbs(s.newW)}</td><td><span class="badge-${s.status}">${s.status}</span></td><td></td><td>${sIn}</td><td>${sUsed}</td></tr>`;
     }).join('');
-    return `<tr><td style="font-family:monospace"><strong>${c.catalogNum}</strong></td><td>${c.name}</td><td>${CLASS_LABELS[c.cls]||c.cls}</td><td>${c.mfg||'—'}</td><td style="font-family:monospace;color:#d97706">${c.exNum||'—'}</td><td style="color:#aaa">${c.productType||'Shell'}</td><td style="text-align:right">${lbs(c.newW)}</td><td style="text-align:right">${c.remainingShells}/${c.totalShells}</td><td style="text-align:right">${lbs(c.totalShells*c.newW)}</td><td>${(CASE_STATUS[caseDisplayStatus(c)]||{label:caseDisplayStatus(c)}).label}</td><td>${showNames||'—'}</td><td style="font-family:monospace">${checkinStr}</td><td></td></tr>${shellRows}`;
+    const st = caseDisplayStatus(c);
+    return `<tr><td>${c.catalogNum}</td><td>${c.name}</td><td>${CLASS_LABELS[c.cls]||c.cls}</td><td>${c.mfg||'—'}</td><td style="color:#b45309;font-family:monospace">${c.exNum||'—'}</td><td style="color:#555">${c.productType||'Shell'}</td><td style="text-align:right;font-weight:600">${lbs(c.newW)}</td><td style="text-align:right;font-weight:600">${c.remainingShells}/${c.totalShells}</td><td style="text-align:right;font-weight:700;color:#0f3460">${lbs(c.totalShells*c.newW)}</td><td><span class="badge-${st}">${(CASE_STATUS[st]||{label:st}).label}</span></td><td style="color:#1e40af;font-size:9px">${showNames||'—'}</td><td style="font-family:monospace;color:#16543a;font-weight:600">${checkinStr}</td><td style="font-family:monospace;color:#991b1b">${c.status==='used'&&c.usedAt?(()=>{const d=c.usedAt.slice(0,10);const [y,m,day]=d.split('-');return `${m}/${day}/${y}`;})():'—'}</td></tr>${shellRows}`;
   }).join('');
   const tNEW=cases.reduce((s,c)=>s+c.totalShells*c.newW,0);
   const tRem=cases.reduce((s,c)=>s+c.remainingShells,0);
@@ -2183,50 +2184,124 @@ function printReport() {
     const sn=sa.reduce((s,a)=>{const c=cases.find(x=>x.id===a.caseId);return s+(c?a.qty*c.newW:0);},0)
       + shellSa.reduce((s,a)=>{const sl=shells.find(x=>x.id===a.shellId);return s+(sl?sl.newW:0);},0);
     const shCount = sa.reduce((s,a)=>s+a.qty,0)+shellSa.length;
-    return `<tr><td>${sh.name}</td><td>${sh.date||'—'}</td><td>${sh.location||'—'}</td><td style="text-align:right">${shCount}</td><td style="text-align:right">${lbs(sn)}</td><td>${(SHOW_STATUS[sh.status]||{label:sh.status}).label}</td></tr>`;
+    return `<tr><td style="font-weight:700;color:#166534">${sh.name}</td><td style="font-family:monospace">${sh.date||'—'}</td><td>${sh.location||'—'}</td><td style="text-align:right;font-weight:700">${shCount}</td><td style="text-align:right;font-weight:700">${lbs(sn)}</td><td><span class="badge-${sh.status||'open'}">${(SHOW_STATUS[sh.status]||{label:sh.status||'—'}).label}</span></td></tr>`;
   }).join('');
   const appTitle = document.getElementById('app-title').textContent || 'Pyro Container Inventory';
+  const appSub = document.getElementById('app-sub').textContent || 'ATF 5400.4 · Storage Inventory';
   const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${appTitle} — ATF Inventory</title><style>
     *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:Arial,sans-serif;font-size:11px;color:#000;background:#fff}
-    @media screen{body{padding:20px;max-width:1100px;margin:0 auto}}
-    @media print{body{margin:0}@page{margin:1.5cm;size:landscape}}
-    h1{font-size:15px;font-weight:bold;margin-bottom:3px}
-    h2{font-size:12px;font-weight:bold;margin:18px 0 5px;border-bottom:1px solid #ccc;padding-bottom:3px}
-    .meta{font-size:10px;color:#555;margin-bottom:12px}
-    table{width:100%;border-collapse:collapse;margin-bottom:6px;font-size:10px}
-    th{background:#e8e8e8;font-size:9px;text-transform:uppercase;letter-spacing:.04em;padding:5px 7px;border:1px solid #bbb;text-align:left;font-weight:bold}
-    td{padding:4px 7px;border:1px solid #d0d0d0;vertical-align:top}
-    tr:nth-child(even) td{background:#fafafa}
-    tfoot td{font-weight:bold;background:#ebebeb;border-top:2px solid #999}
-    .sub-row td{background:#f5f5f5;font-size:9px;color:#555}
-    .sig{margin-top:40px;display:flex;gap:80px}
-    .sig-line{border-top:1px solid #000;width:220px;padding-top:4px;font-size:9px;color:#555}
-    .no-print{margin-bottom:16px}
-    @media print{.no-print{display:none}}
-    button{padding:8px 18px;background:#1a1a1a;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;font-weight:bold;margin-right:8px}
-    button:hover{background:#333}
+    body{font-family:Arial,sans-serif;font-size:11px;color:#1a1a1a;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    @media screen{body{padding:24px;max-width:1200px;margin:0 auto;background:#f0f0f0}}
+    @media screen .page{background:#fff;padding:24px;border-radius:8px;box-shadow:0 2px 12px rgba(0,0,0,.15)}
+    @media print{body{margin:0;background:#fff}@page{margin:1.2cm;size:landscape}}
+
+    /* Header banner */
+    .hdr-banner{background:linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%);color:#fff;padding:18px 24px;border-radius:8px 8px 0 0;margin-bottom:0;display:flex;justify-content:space-between;align-items:center}
+    .hdr-banner h1{font-size:20px;font-weight:900;letter-spacing:-.02em;color:#fff;margin:0}
+    .hdr-banner .sub{font-size:10px;color:#94a3b8;margin-top:3px;letter-spacing:.06em;text-transform:uppercase}
+    .hdr-banner .badge{background:#e84545;color:#fff;font-size:9px;font-weight:900;padding:3px 10px;border-radius:20px;letter-spacing:.08em;text-transform:uppercase}
+    .hdr-flame{font-size:32px;opacity:.8}
+
+    /* Meta bar */
+    .meta-bar{background:#0f3460;color:#fff;padding:10px 24px;display:flex;gap:32px;font-size:10px;margin-bottom:20px;border-radius:0 0 6px 6px}
+    .meta-bar .item{display:flex;flex-direction:column;gap:2px}
+    .meta-bar .lbl{color:#94a3b8;font-size:9px;text-transform:uppercase;letter-spacing:.06em}
+    .meta-bar .val{font-weight:700;font-size:12px;color:#fff}
+
+    /* Section headers */
+    h2{font-size:11px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:#fff;background:linear-gradient(90deg,#e84545,#c0392b);padding:6px 14px;border-radius:4px;margin:20px 0 6px;display:inline-block}
+    h2.blue{background:linear-gradient(90deg,#0f3460,#1a6ba0)}
+    h2.green{background:linear-gradient(90deg,#16543a,#1e7a52)}
+
+    /* Tables */
+    table{width:100%;border-collapse:collapse;margin-bottom:4px;font-size:9.5px}
+    thead tr{background:linear-gradient(90deg,#1a1a2e,#0f3460)}
+    th{font-size:8.5px;text-transform:uppercase;letter-spacing:.05em;padding:6px 7px;border:none;text-align:left;font-weight:800;color:#e2e8f0}
+    td{padding:4px 7px;border-bottom:1px solid #e8ecf0;border-right:1px solid #f0f2f4;vertical-align:middle}
+    tbody tr:nth-child(odd){background:#fafbfc}
+    tbody tr:nth-child(even){background:#f0f4f8}
+    tbody tr:hover{background:#e8f0fe}
+    tbody tr td:first-child{border-left:3px solid #e84545;font-family:monospace;font-weight:700;color:#c0392b}
+
+    /* Shell sub-rows */
+    .shell-row td{background:#f8f0ff !important;font-size:9px;color:#5b21b6;border-left:3px solid #7c3aed !important}
+    .shell-row td:first-child{font-family:monospace;color:#7c3aed;padding-left:20px}
+
+    /* Status badges */
+    .badge-sealed{background:#dbeafe;color:#1e40af;padding:2px 7px;border-radius:10px;font-size:8px;font-weight:700}
+    .badge-open{background:#dcfce7;color:#166534;padding:2px 7px;border-radius:10px;font-size:8px;font-weight:700}
+    .badge-partial{background:#fef9c3;color:#854d0e;padding:2px 7px;border-radius:10px;font-size:8px;font-weight:700}
+    .badge-used{background:#fee2e2;color:#991b1b;padding:2px 7px;border-radius:10px;font-size:8px;font-weight:700}
+    .badge-empty{background:#f1f5f9;color:#475569;padding:2px 7px;border-radius:10px;font-size:8px;font-weight:700}
+
+    /* Totals footer */
+    tfoot tr{background:linear-gradient(90deg,#1a1a2e,#0f3460) !important}
+    tfoot td{font-weight:800;color:#fff !important;border:none !important;padding:7px 7px;font-size:10px}
+    tfoot td:first-child{border-left:none !important}
+
+    /* Show table */
+    .show-table thead tr{background:linear-gradient(90deg,#16543a,#1e7a52)}
+    .show-table tbody tr td:first-child{border-left:3px solid #16a34a;color:#166534}
+
+    /* Signatures */
+    .sig{margin-top:36px;display:flex;gap:60px;padding-top:20px;border-top:2px solid #e84545}
+    .sig-line{width:240px}
+    .sig-line .line{border-top:1px solid #333;margin-bottom:4px}
+    .sig-line .label{font-size:9px;color:#555;display:flex;justify-content:space-between}
+
+    /* Print button */
+    .no-print{margin-bottom:20px;display:flex;gap:8px;align-items:center}
+    @media print{.no-print{display:none}.hdr-banner{border-radius:0}.meta-bar{border-radius:0}}
+    .btn-print{padding:9px 20px;background:#e84545;color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:12px;font-weight:700}
+    .btn-close{padding:9px 20px;background:#333;color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:12px;font-weight:700}
+    .totals-pill{background:#0f3460;color:#fff;border-radius:6px;padding:6px 14px;font-size:10px;font-weight:700;display:inline-flex;gap:20px;margin-bottom:10px}
+    .totals-pill span{display:flex;flex-direction:column;align-items:center}
+    .totals-pill .tv{font-size:14px;color:#fbbf24}
+    .totals-pill .tl{font-size:8px;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em}
   </style></head><body>
   <div class="no-print">
-    <button onclick="window.print()">&#x1F5A8;&nbsp; Print / Save as PDF</button>
-    <button onclick="window.close()">Close</button>
+    <button class="btn-print" onclick="window.print()">🖨 Print / Save as PDF</button>
+    <button class="btn-close" onclick="window.close()">✕ Close</button>
   </div>
-  <h1>${appTitle}</h1>
-  <div class="meta">
-    Container / Magazine: <strong>${container||'N/A'}</strong> &nbsp;&nbsp;|&nbsp;&nbsp;
-    Licensee: <strong>${licensee||'N/A'}</strong> &nbsp;&nbsp;|&nbsp;&nbsp;
-    Report Date: <strong>${date}</strong>
+
+  <div class="hdr-banner">
+    <div>
+      <div class="sub">ATF Form 5400.4 — Explosive Materials</div>
+      <h1>${appTitle}</h1>
+      <div class="sub" style="margin-top:6px">${appSub}</div>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+      <span class="badge">Official Inventory Record</span>
+      <span class="hdr-flame">🎆</span>
+    </div>
   </div>
-  <h2>Container Contents</h2>
+
+  <div class="meta-bar">
+    <div class="item"><span class="lbl">Container / Magazine</span><span class="val">${container||'N/A'}</span></div>
+    <div class="item"><span class="lbl">Licensee</span><span class="val">${licensee||'N/A'}</span></div>
+    <div class="item"><span class="lbl">Report Date</span><span class="val">${date}</span></div>
+    <div class="item"><span class="lbl">Total Cases</span><span class="val">${tTot} units</span></div>
+    <div class="item"><span class="lbl">Total NEW</span><span class="val">${lbs(tNEW)} lbs</span></div>
+  </div>
+
+  <h2>📦 Container Contents</h2>
   <table>
     <thead><tr><th>Catalog #</th><th>Description</th><th>Class</th><th>Manufacturer</th><th>EX #</th><th>Type</th><th>NEW/unit (lbs)</th><th>Units rem/tot</th><th>Total NEW (lbs)</th><th>Status</th><th>Assigned to show(s)</th><th>Check-in</th><th>Used date</th></tr></thead>
     <tbody>${rows}</tbody>
     <tfoot><tr><td colspan="7">TOTALS</td><td>${tRem}/${tTot}</td><td>${lbs(tNEW)} lbs</td><td colspan="4"></td></tr></tfoot>
   </table>
-  ${shows.length?`<h2>Shows</h2><table><thead><tr><th>Show</th><th>Date</th><th>Location</th><th>Shells assigned</th><th>Total NEW (lbs)</th><th>Status</th></tr></thead><tbody>${showRows}</tbody></table>`:''}
+
+  ${shows.length?`
+  <h2 class="blue">🎇 Shows</h2>
+  <table class="show-table">
+    <thead><tr><th>Show</th><th>Date</th><th>Location</th><th>Shells assigned</th><th>Total NEW (lbs)</th><th>Status</th></tr></thead>
+    <tbody>${showRows}</tbody>
+  </table>`:''}
+
   <div class="sig">
-    <div class="sig-line">Licensee Signature &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Date</div>
-    <div class="sig-line">Inspector Signature &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Date</div>
+    <div class="sig-line"><div class="line"></div><div class="label"><span>Licensee Signature</span><span>Date</span></div></div>
+    <div class="sig-line"><div class="line"></div><div class="label"><span>Inspector Signature</span><span>Date</span></div></div>
+    <div class="sig-line"><div class="line"></div><div class="label"><span>Witness Signature</span><span>Date</span></div></div>
   </div>
   <\/body><\/html>`;
 
