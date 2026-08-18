@@ -2309,7 +2309,11 @@ function printReport(direction) {
       const st = caseDisplayStatus(c);
       const shellSubRows = cShells.map(s=>{
         const sIn = s.addedAt?(()=>{const d=s.addedAt.slice(0,10);const[y,m,day]=d.split('-');return m+'/'+day+'/'+y;})():checkin;
-        return `<tr class="shell-row"><td>${s.shellNum}</td><td>${s.desc}</td><td colspan="5"></td><td style="text-align:right">${lbs(s.newW)}</td><td><span class="badge-${s.status}">${s.status}</span></td><td></td><td>${sIn}</td><td>—</td></tr>`;
+        const rmEntry = (removalLog||[]).find(e=>e.type==='shell'&&e.shellNum===s.shellNum);
+        const outTs = rmEntry ? rmEntry.removedAt : s.usedAt;
+        const sOut = outTs?(()=>{const d=new Date(outTs).toISOString().slice(0,10);const[y,m,day]=d.split('-');return m+'/'+day+'/'+y;})():'—';
+        const outStyle = outTs ? 'color:#991b1b;font-family:monospace;font-weight:600' : 'color:#555';
+        return `<tr class="shell-row"><td>${s.shellNum}</td><td>${s.desc}</td><td colspan="5"></td><td style="text-align:right">${lbs(s.newW)}</td><td><span class="badge-${s.status}">${s.status}</span></td><td></td><td>${sIn}</td><td style="${outStyle}">${sOut}</td></tr>`;
       }).join('');
       return `<tr><td>${c.catalogNum}</td><td>${c.name}</td><td>${CLASS_LABELS[c.cls]||c.cls}</td><td>${c.mfg||'—'}</td><td style="color:#60a5fa">${c.purchasedFrom||'—'}</td><td style="color:#b45309;font-family:monospace">${c.exNum||'—'}</td><td>${c.productType||'Shell'}</td><td style="text-align:right;font-weight:600">${lbs(c.newW)}</td><td style="text-align:right;font-weight:600">${c.remainingShells}/${c.totalShells}</td><td style="text-align:right;font-weight:700;color:#0f3460">${lbs(c.totalShells*c.newW)}</td><td><span class="badge-${st}">${(CASE_STATUS[st]||{label:st}).label}</span></td><td style="color:#1e40af;font-size:9px">${showNames||'—'}</td><td style="font-family:monospace;color:#16543a;font-weight:600">${checkin}</td><td>—</td></tr>${shellSubRows}`;
     }).join('');
