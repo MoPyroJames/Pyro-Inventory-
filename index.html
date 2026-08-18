@@ -2849,7 +2849,7 @@ function renderInvoiceTab() {
     el.innerHTML = `
       <div class="sec">Import Invoice</div>
       <div class="card-pad" style="max-width:700px">
-        <p style="font-size:13px;color:#888;margin:0 0 16px">Drop a PDF or image of your fireworks invoice. Claude will read the line items, match each one against the product catalog, and give you a review table to confirm before adding to your inventory.</p>
+        <p style="font-size:13px;color:#888;margin:0 0 16px">Drop a PDF or image of your fireworks invoice or shipment manifest. Claude will read every line item and give you a review table to confirm before adding to your inventory.</p>
         <div id="inv-drop" style="border:2px dashed #2a2a2a;border-radius:10px;padding:48px 32px;text-align:center;cursor:pointer;transition:border-color .15s"
           ondragover="event.preventDefault();this.style.borderColor='#d97706'"
           ondragleave="this.style.borderColor='#2a2a2a'"
@@ -2878,7 +2878,7 @@ function renderInvoiceTab() {
           <div style="width:28px;height:28px;border:3px solid #d97706;border-top-color:transparent;border-radius:50%;animation:spin 0.8s linear infinite;flex-shrink:0"></div>
           <div>
             <div style="font-weight:700;color:#e5e5e5;margin-bottom:4px">Reading invoice…</div>
-            <div style="font-size:12px;color:#555">${esc(inv.parseStep||'Extracting line items and matching against catalog…')}</div>
+            <div style="font-size:12px;color:#555">${esc(inv.parseStep||'Extracting line items from invoice…')}</div>
           </div>
         </div>
       </div>`;
@@ -2887,42 +2887,32 @@ function renderInvoiceTab() {
 
   if (inv.status === 'review') {
     const lines = inv.lines || [];
-    const allCatalog = [...(FC||[]).map(p=>({sku:p.s,name:p.n,mfg:p.m,cls:p.c,productType:p.t,size:p.z,cat:p.g,mfgPn:p.p,_finale:true})),
-                        ...RACCOON_CATALOG, ...WIZARD_CATALOG];
 
     const rows = lines.map((ln, i) => {
       const checked = ln.include !== false;
-      const match = ln.match; // catalog item if found
-      const clsOpts = ATF_CLASSES.map(c=>`<option value="${c.value}"${(ln.cls||'1D')===c.value?' selected':''}>${c.label}</option>`).join('');
+      const clsOpts = ATF_CLASSES.map(c=>`<option value="${c.value}"${(ln.cls||'1C')===c.value?' selected':''}>${c.label}</option>`).join('');
       const typeOpts = PRODUCT_TYPES.map(t=>`<option value="${t}"${(ln.productType||'Shell')===t?' selected':''}>${t}</option>`).join('');
 
-      return `<tr style="opacity:${checked?1:0.4};background:${match?'':'#1a0a00'}">
+      return `<tr style="opacity:${checked?1:0.4}">
         <td style="text-align:center">
           <input type="checkbox" ${checked?'checked':''} onchange="invoiceLineToggle(${i},this.checked)" style="width:15px;height:15px;accent-color:#d97706">
         </td>
-        <td style="font-size:12px;color:#888;font-family:var(--mono)">${esc(ln.rawLine||'')}</td>
-        <td>
-          ${match
-            ? `<div style="font-size:11px;color:#86efac;font-weight:700">✓ MATCHED</div>
-               <div style="font-family:var(--mono);font-size:11px;color:#fbbf24">${esc(match.sku||match.s||'')}</div>
-               <div style="font-size:12px;color:#e5e5e5">${esc(match.name||match.n||'')}</div>
-               <div style="font-size:11px;color:#555">${esc(match.mfg||match.m||'')} · ${esc(match.cat||match.g||'')}</div>`
-            : `<div style="font-size:11px;color:#fca5a5;font-weight:700">⚠ NO MATCH — edit below</div>`}
-        </td>
+        <td style="font-family:var(--mono);font-size:11px;color:#fbbf24">${esc(ln.sku||'—')}</td>
         <td><input class="edit-input" style="width:100%" value="${esc(ln.name||'')}" oninput="invoiceLineEdit(${i},'name',this.value)" placeholder="Description*"></td>
+        <td><input class="edit-input" style="width:60px" value="${esc(ln.mfg||'')}" oninput="invoiceLineEdit(${i},'mfg',this.value)" placeholder="Mfg"></td>
         <td><input class="edit-input" style="width:70px;font-family:var(--mono)" value="${esc(ln.exNum||'')}" oninput="invoiceLineEdit(${i},'exNum',this.value)" placeholder="EX #"></td>
         <td><select class="edit-input" style="height:28px" onchange="invoiceLineEdit(${i},'cls',this.value)">${clsOpts}</select></td>
         <td><select class="edit-input" style="height:28px;min-width:90px" onchange="invoiceLineEdit(${i},'productType',this.value)">${typeOpts}</select></td>
-        <td><input class="edit-input" style="width:60px;font-family:var(--mono)" value="${esc(ln.size||'')}" oninput="invoiceLineEdit(${i},'size',this.value)" placeholder='size'></td>
-        <td><input class="edit-input" type="number" style="width:55px" value="${esc(String(ln.qty||1))}" oninput="invoiceLineEdit(${i},'qty',this.value)" min="1" title="Cases ordered"></td>
+        <td><input class="edit-input" style="width:55px;font-family:var(--mono)" value="${esc(ln.size||'')}" oninput="invoiceLineEdit(${i},'size',this.value)" placeholder='size'></td>
+        <td><input class="edit-input" type="number" style="width:45px" value="${esc(String(ln.qty||1))}" oninput="invoiceLineEdit(${i},'qty',this.value)" min="1" title="Cases ordered"></td>
         <td>
           <div style="display:flex;flex-direction:column;gap:3px">
-            <input class="edit-input" style="width:60px;font-family:var(--mono);font-size:11px" value="${esc(ln.packing||'')}" oninput="invoiceLineEdit(${i},'packing',this.value)" placeholder="e.g. 6/1" title="Packing from invoice">
-            <input class="edit-input" type="number" style="width:60px" value="${esc(String(ln.unitsPerCase||''))}" oninput="invoiceLineEdit(${i},'unitsPerCase',this.value)" placeholder="units" min="1" title="Units per case (auto-parsed from packing)">
+            <input class="edit-input" style="width:55px;font-family:var(--mono);font-size:11px" value="${esc(ln.packing||'')}" oninput="invoiceLineEdit(${i},'packing',this.value)" placeholder="cs 6">
+            <input class="edit-input" type="number" style="width:55px" value="${esc(String(ln.unitsPerCase||''))}" oninput="invoiceLineEdit(${i},'unitsPerCase',this.value)" placeholder="units" min="1" title="Units per case">
           </div>
         </td>
-        <td><input class="edit-input" type="number" style="width:65px" value="${esc(String(ln.newW||''))}" oninput="invoiceLineEdit(${i},'newW',this.value)" placeholder="lb/unit"></td>
-        <td><input class="edit-input" type="number" style="width:65px" value="${esc(String(ln.unitCost||''))}" oninput="invoiceLineEdit(${i},'unitCost',this.value)" placeholder="$/case"></td>
+        <td><input class="edit-input" type="number" style="width:60px" value="${esc(String(ln.newW||''))}" oninput="invoiceLineEdit(${i},'newW',this.value)" placeholder="lb/unit"></td>
+        <td><input class="edit-input" type="number" style="width:60px" value="${esc(String(ln.unitCost||''))}" oninput="invoiceLineEdit(${i},'unitCost',this.value)" placeholder="$/case"></td>
       </tr>`;
     }).join('');
 
@@ -2930,7 +2920,7 @@ function renderInvoiceTab() {
 
     el.innerHTML = `
       <div class="sec" style="display:flex;align-items:center;justify-content:space-between">
-        <span>Review Invoice — <span style="color:#fbbf24;font-weight:700">${lines.filter(l=>l.match).length}/${lines.length}</span> matched in catalog</span>
+        <span>Review Invoice — <span style="color:#fbbf24;font-weight:700">${lines.length}</span> line items found</span>
         <div style="display:flex;gap:8px">
           <button class="btn-sm" onclick="invoiceReset()">↩ Start over</button>
           <button class="btn-primary" onclick="invoiceImport()" ${readyCount<1?'disabled':''} style="font-size:12px">
@@ -2941,14 +2931,14 @@ function renderInvoiceTab() {
       <div class="card" style="overflow-x:auto">
         <table style="font-size:12px">
           <colgroup>
-            <col style="width:3%"><col style="width:12%"><col style="width:14%">
-            <col style="width:13%"><col style="width:6%"><col style="width:6%"><col style="width:7%">
+            <col style="width:3%"><col style="width:8%"><col style="width:18%"><col style="width:7%">
+            <col style="width:7%"><col style="width:6%"><col style="width:8%">
             <col style="width:5%"><col style="width:4%"><col style="width:8%"><col style="width:7%"><col style="width:7%">
           </colgroup>
           <thead><tr>
-            <th>✓</th><th>Raw invoice line</th><th>Catalog match</th>
-            <th>Description</th><th>EX #</th><th>Class</th><th>Type</th>
-            <th>Size</th><th>Cases</th><th>Packing / Units/case</th><th>NEW/unit (lb)</th><th>$/case</th>
+            <th>✓</th><th>SKU / ID</th><th>Description</th><th>Mfg</th>
+            <th>EX #</th><th>Class</th><th>Type</th>
+            <th>Size</th><th>Cases</th><th>Packing / Units</th><th>NEW/unit (lb)</th><th>$/case</th>
           </tr></thead>
           <tbody>${rows}</tbody>
         </table>
@@ -3016,35 +3006,34 @@ async function invoiceProcess(file) {
 
     const mediaType = file.type === 'image/jpg' ? 'image/jpeg' : file.type;
 
-    // Keep prompt concise — no inline catalog (we match locally after)
-    const prompt = `You are reading a fireworks invoice or purchase order. Extract every product line item and return ONLY a valid JSON array with no markdown fences.
+    // Keep prompt concise — extract only from invoice, no catalog matching
+    const prompt = `You are reading a fireworks invoice, sales order, or shipment manifest. Extract every product line item and return ONLY a valid JSON array with no markdown fences, no explanation.
 
-Each element must have:
+Each element must have exactly these fields:
 {
-  "rawLine": "exact text from invoice",
-  "sku": "part number or product code if shown, else null",
-  "name": "product name or description",
-  "mfg": "manufacturer if shown, else null",
-  "qty": <integer number of CASES ordered, default 1>,
-  "packing": "packing string exactly as shown on invoice e.g. 6/1, 12/1, 24/6, 4/1 — this means units-per-case/cases. If not shown use null",
-  "unitsPerCase": <integer units (shells/tubes/pieces) inside ONE case from the packing. E.g. packing 6/1 means 6 units per case. packing 24/6 means 24 units per case. If unknown use null>,
-  "unitCost": <price per CASE as number if shown, else null>,
-  "exNum": "EX number if shown, else null",
-  "cls": "1C" for 1.3G Class B, "1D" for 1.4G Class C or Pro, else "1D",
-  "productType": one of: Shell|Mine|Comet|Cake|Fountain|Ground Effect|Roman Candle|Mortar|Aerial Repeater|Strobe|Gerb|Lance|Wheel|Chain|Assortment|Other,
-  "size": "caliber like 3in or 25mm if shown, else null",
-  "newW": <NET explosive weight per unit/shell in POUNDS as number if shown, else null>
+  "rawLine": "exact product line text from the document",
+  "sku": "product ID / part number / SKU from the invoice, else null",
+  "name": "full product description exactly as written on the invoice",
+  "mfg": "manufacturer name if shown on the invoice header or line, else null",
+  "qty": <integer number of CASES ordered — the Quantity column, default 1>,
+  "packing": "packing string exactly as shown e.g. cs 72, cs 36, cs 9, cs 1 — null if not shown",
+  "unitsPerCase": <integer number of shells/units INSIDE one case. Parse from packing: 'cs 72' = 72, 'cs 36' = 36, 'cs 9' = 9, 'cs 6' = 6, 'cs 1' = 1. If packing not shown, use null>,
+  "unitCost": <price per case as a number from Unit Price column, else null>,
+  "exNum": "EX number if shown on the line e.g. EX-1234 or 2012070660, else null",
+  "cls": "1C" for 1.3G display shells, "1D" for 1.4G consumer/pro, default "1C" for professional shells,
+  "productType": one of Shell|Mine|Comet|Cake|Fountain|Assortment|Chain|Other,
+  "size": "shell size like 3in, 4in, 5in, 6in, 8in — extract from description, else null",
+  "newW": <NET explosive weight per shell in POUNDS if shown, else null>
 }
 
-Packing interpretation guide:
-- "6/1" = 6 units per case, 1 case per master = unitsPerCase:6
-- "12/1" = 12 units per case = unitsPerCase:12
-- "24/6" = 24 shells per tube, 6 tubes per case = unitsPerCase:24 (first number is units inside)
-- "4/1" = 4 units per case = unitsPerCase:4
-- "cs 5" or "case of 5" = unitsPerCase:5
-
-Skip header rows, shipping lines, tax lines, and non-product rows.
-Return ONLY the JSON array.`;
+Important rules:
+- qty = the Quantity column (number of cases ordered)
+- unitsPerCase = shells per case from the Packing column (cs 36 means 36 shells per case)
+- Extract the manufacturer from the document header or company name if shown
+- For EX numbers, look for patterns like EX-XXXXXXXX or long numbers after "EX number:"
+- Skip subtotal, discount, total, tax, shipping rows
+- Skip page headers and address information
+- Return ONLY the JSON array, nothing else`;
 
     // Build content — image or PDF
     const contentParts = isPdf
@@ -3080,7 +3069,7 @@ Return ONLY the JSON array.`;
     const rawText = data.content?.find(b=>b.type==='text')?.text || '';
     if (!rawText) throw new Error('Claude returned an empty response. Check the file and try again.');
 
-    state.invoice.parseStep = 'Matching against catalog…';
+    state.invoice.parseStep = 'Processing response…';
     renderTab('invoice');
 
     // Parse JSON — strip markdown fences, handle truncation
@@ -3122,33 +3111,6 @@ Return ONLY the JSON array.`;
       }
     }
 
-    // Build catalog lookup maps (SKU → item)
-    const catalogMap = {};
-    (FC||[]).forEach(p => {
-      catalogMap[p.s.toLowerCase()] = p;
-      if (p.p) catalogMap[p.p.toLowerCase()] = p; // also index by mfg part number
-    });
-    RACCOON_CATALOG.forEach(p => { if(p.sku) catalogMap[p.sku.toLowerCase()] = p; });
-    WIZARD_CATALOG.forEach(p => { if(p.sku) catalogMap[p.sku.toLowerCase()] = p; });
-
-    // Pre-build name index for fuzzy matching
-    const nameIndex = (FC||[]).map(p => ({item:p, words:p.n.toLowerCase().replace(/[^a-z0-9 ]/g,' ').split(' ').filter(w=>w.length>3)}));
-
-    function fuzzyMatch(name) {
-      if (!name) return null;
-      const q = name.toLowerCase().replace(/[^a-z0-9 ]/g,' ');
-      const qWords = q.split(' ').filter(w=>w.length>3);
-      if (!qWords.length) return null;
-
-      let best = null, bestScore = 0;
-      for (const {item, words} of nameIndex) {
-        const hits = qWords.filter(w => words.includes(w)).length;
-        const score = hits / Math.max(qWords.length, words.length);
-        if (score > bestScore && score >= 0.4) { bestScore = score; best = item; }
-      }
-      return best;
-    }
-
     // Parse packing string like "6/1", "24/6", "cs 5" → unitsPerCase
     function parsePacking(packing, fallbackUnits) {
       if (fallbackUnits) return parseInt(fallbackUnits);
@@ -3166,41 +3128,27 @@ Return ONLY the JSON array.`;
       return null;
     }
 
-    // Match each line to catalog
+    // Map each parsed line — use invoice data only, no catalog matching
     const lines = parsed
       .filter(item => item && (item.name || item.sku))
       .map(item => {
-        let match = null;
-
-        // 1. Exact SKU lookup
-        const skuKey = (item.sku||'').toLowerCase().trim();
-        if (skuKey && catalogMap[skuKey]) match = catalogMap[skuKey];
-
-        // 2. Fuzzy name match
-        if (!match) match = fuzzyMatch(item.name);
-
-        // Pull fields from catalog match (FC compact format)
-        const fc = match && match.s ? match : null;
-        const bi = match && !match.s ? match : null;
-
         const unitsPerCase = parsePacking(item.packing, item.unitsPerCase);
-
         return {
-          rawLine:     item.rawLine || '',
-          sku:         item.sku || (fc?.s) || (bi?.sku) || '',
-          name:        item.name || (fc?.n) || (bi?.name) || '',
-          mfg:         item.mfg || (fc?.m) || (bi?.mfg) || '',
-          cls:         item.cls || (fc?.c) || (bi?.cls) || '1D',
-          productType: item.productType || (fc?.t) || (bi?.productType) || 'Shell',
-          size:        item.size || (fc?.z) || (bi?.size) || '',
-          exNum:       item.exNum || '',
-          qty:         Math.max(1, parseInt(item.qty)||1),
-          packing:     item.packing || '',
+          rawLine:      item.rawLine || '',
+          sku:          item.sku || '',
+          name:         item.name || '',
+          mfg:          item.mfg || '',
+          cls:          item.cls || '1D',
+          productType:  item.productType || 'Shell',
+          size:         item.size || '',
+          exNum:        item.exNum || '',
+          qty:          Math.max(1, parseInt(item.qty)||1),
+          packing:      item.packing || '',
           unitsPerCase: unitsPerCase,
-          newW:        item.newW    ? parseFloat(item.newW)    : null,
-          unitCost:    item.unitCost ? parseFloat(item.unitCost) : null,
-          match:       match || null,
-          include:     true,
+          newW:         item.newW     ? parseFloat(item.newW)     : null,
+          unitCost:     item.unitCost ? parseFloat(item.unitCost) : null,
+          match:        null,
+          include:      true,
         };
       });
 
