@@ -1233,8 +1233,9 @@ function renderReportTab() {
   const {container,licensee} = state;
   const showHidden = state.reportShowHidden || false;
 
-  // Split cases: visible on report vs hidden
-  const reportCases = cases.filter(c => showHidden || !c.hideFromReport);
+  // Split cases: visible on report vs hidden; also split singles from real cases
+  const reportCases = cases.filter(c => (showHidden || !c.hideFromReport) && !c.isSingle);
+  const reportSingles = cases.filter(c => (showHidden || !c.hideFromReport) && c.isSingle);
 
   const caseRows = reportCases.flatMap(c => {
     const cShells = shells.filter(s=>s.caseId===c.id);
@@ -1336,8 +1337,40 @@ function renderReportTab() {
     </tr>`;
   }).join('');
 
-  const tNEW = reportCases.reduce((s,c)=>s+c.totalShells*c.newW,0);  const tRem = reportCases.reduce((s,c)=>s+c.remainingShells,0);
+  const tNEW = reportCases.reduce((s,c)=>s+c.totalShells*c.newW,0);
+  const tRem = reportCases.reduce((s,c)=>s+c.remainingShells,0);
   const tTot = reportCases.reduce((s,c)=>s+c.totalShells,0);
+
+  // Build single unit rows — show as individual shells, not cases
+  const singleRows = reportSingles.flatMap(c => {
+    const s = shells.find(x=>x.caseId===c.id);
+    if (!s) return [];
+    const sa = (shellAssignmentsRpt||[]).filter(a=>a.shellId===s.id);
+    const showName = sa.length ? [...new Set(sa.map(a=>{const sh=shows.find(x=>x.id===a.showId);return sh?sh.name:null;}).filter(Boolean))].join(', ') : '—';
+    const checkinStr = c.createdAt ? new Date(c.createdAt).toLocaleDateString() : '—';
+    const usedStr = s.usedAt ? new Date(s.usedAt).toLocaleDateString() : '—';
+    return [`<tr style="${c.hideFromReport?'opacity:0.45;':''}">
+      <td><span class="mono-tag">${esc(s.shellNum)}</span></td>
+      <td style="font-weight:600">${esc(c.name)}</td>
+      <td>${badge(c.cls)}</td>
+      <td style="font-size:12px;color:#888">${esc(c.mfg||'—')}</td>
+      <td style="font-family:var(--mono);font-size:12px;color:#fbbf24">${esc(c.exNum||'—')}</td>
+      <td style="font-size:12px;color:#aaa">${esc(c.productType||'Shell')}</td>
+      <td style="text-align:right;font-family:var(--mono)">${lbs(c.newW)}</td>
+      <td style="text-align:right;font-family:var(--mono)">1/1</td>
+      <td style="text-align:right;font-weight:600;font-family:var(--mono)">${lbs(c.newW)}</td>
+      <td>${statusBadge(s.status==='used'?'used':'open')}</td>
+      <td style="font-size:12px;color:#888">${esc(showName)}</td>
+      <td style="font-family:var(--mono);font-size:11px;color:#86efac">${checkinStr}</td>
+      <td style="font-family:var(--mono);font-size:11px;color:#fca5a5">${usedStr}</td>
+      <td style="text-align:center">
+        <button onclick="toggleHideFromReport('${c.id}')" title="${c.hideFromReport?'Restore':'Remove from report'}"
+          style="font-size:11px;padding:3px 10px;border-radius:4px;border:1px solid ${c.hideFromReport?'#16a34a':'#7f1d1d'};background:${c.hideFromReport?'#052e16':'#1a0505'};color:${c.hideFromReport?'#4ade80':'#f87171'};cursor:pointer;white-space:nowrap;font-weight:600">
+          ${c.hideFromReport ? '✓ Restore' : '✕ Remove'}
+        </button>
+      </td>
+    </tr>`];
+  }).join('');
 
   el.innerHTML = `
     <div class="card-pad">
@@ -1363,15 +1396,26 @@ function renderReportTab() {
         <span>·</span><span>Licensee: <strong>${esc(licensee||'—')}</strong></span>
       </div>
 
-      <div class="sec" style="margin-top:16px">Container contents</div>
+      <div class="sec" style="margin-top:16px">Container contents — Cases</div>
       <div style="overflow-x:auto;margin-bottom:20px">
         <table>
           <colgroup><col style="width:8%"><col style="width:14%"><col style="width:5%"><col style="width:8%"><col style="width:6%"><col style="width:6%"><col style="width:7%"><col style="width:7%"><col style="width:8%"><col style="width:6%"><col style="width:10%"><col style="width:8%"><col style="width:7%"></colgroup>
           <thead><tr><th>Catalog #</th><th>Description</th><th>Class</th><th>Manufacturer</th><th>EX #</th><th>Type</th><th>NEW/unit (lbs)</th><th>Units rem/tot</th><th>Case NEW (lbs)</th><th>Status</th><th>Assigned to show(s)</th><th style="color:#86efac">Check-in</th><th style="color:#fca5a5">Check-out</th><th style="color:#f87171">Remove</th></tr></thead>
-          <tbody>${caseRows||`<tr><td colspan="13" class="empty">No inventory recorded.</td></tr>`}</tbody>
-          ${cases.length>0?`<tfoot><tr><td colspan="7">Totals</td><td style="font-family:var(--mono)">${tRem}/${tTot}</td><td style="font-family:var(--mono)">${lbs(tNEW)} lbs</td><td colspan="4"></td></tr></tfoot>`:''}
+          <tbody>${caseRows||`<tr><td colspan="14" class="empty">No cases recorded.</td></tr>`}</tbody>
+          ${reportCases.length>0?`<tfoot><tr><td colspan="7">Totals</td><td style="font-family:var(--mono)">${tRem}/${tTot}</td><td style="font-family:var(--mono)">${lbs(tNEW)} lbs</td><td colspan="5"></td></tr></tfoot>`:''}
         </table>
       </div>
+
+      ${reportSingles.length>0?`
+      <div class="sec" style="margin-top:16px">Individual Shells (single units)</div>
+      <div style="overflow-x:auto;margin-bottom:20px">
+        <table>
+          <colgroup><col style="width:8%"><col style="width:14%"><col style="width:5%"><col style="width:8%"><col style="width:6%"><col style="width:6%"><col style="width:7%"><col style="width:7%"><col style="width:8%"><col style="width:6%"><col style="width:10%"><col style="width:8%"><col style="width:7%"></colgroup>
+          <thead><tr><th>Shell #</th><th>Description</th><th>Class</th><th>Manufacturer</th><th>EX #</th><th>Type</th><th>NEW (lbs)</th><th>Rem/Tot</th><th>Total NEW (lbs)</th><th>Status</th><th>Assigned to show(s)</th><th style="color:#86efac">Check-in</th><th style="color:#fca5a5">Used date</th><th style="color:#f87171">Remove</th></tr></thead>
+          <tbody>${singleRows}</tbody>
+          <tfoot><tr><td colspan="7">Totals</td><td>${reportSingles.length}/${reportSingles.length}</td><td style="font-family:var(--mono)">${lbs(reportSingles.reduce((s,c)=>s+c.newW,0))} lbs</td><td colspan="5"></td></tr></tfoot>
+        </table>
+      </div>`:''}
 
       ${shows.length>0?`
         <div class="sec">Shows</div>
@@ -2154,7 +2198,11 @@ function printReport() {
   const shellAssignments = state.data.shellAssignments||[];
   const {container,licensee} = state;
   const date = new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
-  const rows = cases.map(c=>{
+
+  const realCases   = cases.filter(c => !c.isSingle && !c.hideFromReport);
+  const singleCases = cases.filter(c =>  c.isSingle && !c.hideFromReport);
+
+  const rows = realCases.map(c=>{
     const cShells=shells.filter(s=>s.caseId===c.id);
     const cAssign=assignments.filter(a=>a.caseId===c.id);
     const cShellAssignP=shellAssignments.filter(a=>a.caseId===c.id);
@@ -2175,9 +2223,20 @@ function printReport() {
     const st = caseDisplayStatus(c);
     return `<tr><td>${c.catalogNum}</td><td>${c.name}</td><td>${CLASS_LABELS[c.cls]||c.cls}</td><td>${c.mfg||'—'}</td><td style="color:#b45309;font-family:monospace">${c.exNum||'—'}</td><td style="color:#555">${c.productType||'Shell'}</td><td style="text-align:right;font-weight:600">${lbs(c.newW)}</td><td style="text-align:right;font-weight:600">${c.remainingShells}/${c.totalShells}</td><td style="text-align:right;font-weight:700;color:#0f3460">${lbs(c.totalShells*c.newW)}</td><td><span class="badge-${st}">${(CASE_STATUS[st]||{label:st}).label}</span></td><td style="color:#1e40af;font-size:9px">${showNames||'—'}</td><td style="font-family:monospace;color:#16543a;font-weight:600">${checkinStr}</td><td style="font-family:monospace;color:#991b1b">${c.status==='used'&&c.usedAt?(()=>{const d=c.usedAt.slice(0,10);const [y,m,day]=d.split('-');return `${m}/${day}/${y}`;})():'—'}</td></tr>${shellRows}`;
   }).join('');
-  const tNEW=cases.reduce((s,c)=>s+c.totalShells*c.newW,0);
-  const tRem=cases.reduce((s,c)=>s+c.remainingShells,0);
-  const tTot=cases.reduce((s,c)=>s+c.totalShells,0);
+  const tNEW=realCases.reduce((s,c)=>s+c.totalShells*c.newW,0);
+  const tRem=realCases.reduce((s,c)=>s+c.remainingShells,0);
+  const tTot=realCases.reduce((s,c)=>s+c.totalShells,0);
+
+  // Single unit rows for print
+  const singleRows = singleCases.map(c=>{
+    const s = shells.find(x=>x.caseId===c.id);
+    if (!s) return '';
+    const sa = shellAssignments.filter(a=>a.shellId===s.id);
+    const showName = sa.length ? [...new Set(sa.map(a=>{const sh=shows.find(x=>x.id===a.showId);return sh?sh.name:null;}).filter(Boolean))].join(', ') : '—';
+    const checkinStr = c.createdAt ? (()=>{const d=c.createdAt.slice(0,10);const [y,m,day]=d.split('-');return `${m}/${day}/${y}`;})() : '—';
+    const usedStr = s.usedAt ? (()=>{const d=s.usedAt.slice(0,10);const [y,m,day]=d.split('-');return `${m}/${day}/${y}`;})() : '—';
+    return `<tr><td>${s.shellNum}</td><td>${c.name}</td><td>${CLASS_LABELS[c.cls]||c.cls}</td><td>${c.mfg||'—'}</td><td style="color:#b45309;font-family:monospace">${c.exNum||'—'}</td><td>${c.productType||'Shell'}</td><td style="text-align:right">${lbs(c.newW)}</td><td style="text-align:right">1/1</td><td style="text-align:right;font-weight:700">${lbs(c.newW)}</td><td><span class="badge-${s.status==='used'?'used':'open'}">${s.status==='used'?'Used':'Available'}</span></td><td style="color:#1e40af;font-size:9px">${showName}</td><td style="font-family:monospace;color:#16543a;font-weight:600">${checkinStr}</td><td style="font-family:monospace;color:#991b1b">${usedStr}</td></tr>`;
+  }).join('');
   const showRows=shows.map(sh=>{
     const sa=assignments.filter(a=>a.showId===sh.id);
     const shellSa=(state.data.shellAssignments||[]).filter(a=>a.showId===sh.id&&!a.bulkAssignId);
@@ -2284,12 +2343,20 @@ function printReport() {
     <div class="item"><span class="lbl">Total NEW</span><span class="val">${lbs(tNEW)} lbs</span></div>
   </div>
 
-  <h2>📦 Container Contents</h2>
+  <h2>📦 Container Contents — Cases</h2>
   <table>
     <thead><tr><th>Catalog #</th><th>Description</th><th>Class</th><th>Manufacturer</th><th>EX #</th><th>Type</th><th>NEW/unit (lbs)</th><th>Units rem/tot</th><th>Total NEW (lbs)</th><th>Status</th><th>Assigned to show(s)</th><th>Check-in</th><th>Used date</th></tr></thead>
-    <tbody>${rows}</tbody>
+    <tbody>${rows||'<tr><td colspan="13" style="color:#999;text-align:center;padding:12px">No cases recorded.</td></tr>'}</tbody>
     <tfoot><tr><td colspan="7">TOTALS</td><td>${tRem}/${tTot}</td><td>${lbs(tNEW)} lbs</td><td colspan="4"></td></tr></tfoot>
   </table>
+
+  ${singleCases.length?`
+  <h2 style="background:linear-gradient(90deg,#5b21b6,#7c3aed)">🔹 Individual Shells (Single Units)</h2>
+  <table>
+    <thead><tr><th>Shell #</th><th>Description</th><th>Class</th><th>Manufacturer</th><th>EX #</th><th>Type</th><th>NEW (lbs)</th><th>Rem/Tot</th><th>Total NEW (lbs)</th><th>Status</th><th>Assigned to show(s)</th><th>Check-in</th><th>Used date</th></tr></thead>
+    <tbody>${singleRows}</tbody>
+    <tfoot><tr><td colspan="7">TOTALS</td><td>${singleCases.length}/${singleCases.length}</td><td>${lbs(singleCases.reduce((s,c)=>s+c.newW,0))} lbs</td><td colspan="4"></td></tr></tfoot>
+  </table>`:''}
 
   ${shows.length?`
   <h2 class="blue">🎇 Shows</h2>
