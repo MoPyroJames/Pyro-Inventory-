@@ -1261,7 +1261,10 @@ function renderReportTab() {
 
     const shellRows = cShells.map(s=>{
       const sIn = s.addedAt ? new Date(s.addedAt).toLocaleDateString() : checkinStr;
-      const sOut = s.usedAt ? new Date(s.usedAt).toLocaleDateString() : '—';
+      // Read used date from removal log first (most up to date), fall back to s.usedAt
+      const sRmEntry = (state.data.removalLog||[]).find(e=>e.type==='shell'&&e.shellNum===s.shellNum);
+      const sOutTs = sRmEntry ? sRmEntry.removedAt : s.usedAt;
+      const sOut = sOutTs ? new Date(sOutTs).toLocaleDateString() : '—';
       return `<tr>
         <td class="td-sub"><span class="mono-tag" style="font-size:11px">↳ ${esc(s.shellNum)}</span></td>
         <td class="td-sub">${esc(s.desc)}</td>
@@ -1277,7 +1280,10 @@ function renderReportTab() {
         </td>
         <td class="td-sub" style="font-family:var(--mono);font-size:11px;color:#fca5a5">
           ${sOut}
-          ${s.usedAt ? '<br>'+dpBtn(s.usedAt,iso=>{updateLogTs('shellused',s.id,iso);renderTab('report')},'Set date') : ''}
+          ${sOutTs ? '<br>'+(sRmEntry
+            ? dpBtn(sRmEntry.removedAt,iso=>{updateLogTs('removal',sRmEntry.id,iso);renderTab('report')},'Set date')
+            : dpBtn(s.usedAt,iso=>{updateLogTs('shellused',s.id,iso);renderTab('report')},'Set date')
+          ) : ''}
         </td>
       </tr>`;
     }).join('');
@@ -1348,7 +1354,9 @@ function renderReportTab() {
     const sa = (shellAssignmentsRpt||[]).filter(a=>a.shellId===s.id);
     const showName = sa.length ? [...new Set(sa.map(a=>{const sh=shows.find(x=>x.id===a.showId);return sh?sh.name:null;}).filter(Boolean))].join(', ') : '—';
     const checkinStr = c.createdAt ? new Date(c.createdAt).toLocaleDateString() : '—';
-    const usedStr = s.usedAt ? new Date(s.usedAt).toLocaleDateString() : '—';
+    const sRmEntry = (state.data.removalLog||[]).find(e=>e.type==='shell'&&e.shellNum===s.shellNum);
+    const sOutTs = sRmEntry ? sRmEntry.removedAt : s.usedAt;
+    const usedStr = sOutTs ? new Date(sOutTs).toLocaleDateString() : '—';
     return [`<tr style="${c.hideFromReport?'opacity:0.45;':''}">
       <td><span class="mono-tag">${esc(s.shellNum)}</span></td>
       <td style="font-weight:600">${esc(c.name)}</td>
