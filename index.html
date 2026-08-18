@@ -3409,6 +3409,7 @@ function buildLabelData() {
         const checkin = s.addedAt || (pc && pc.createdAt);
         if (checkin) lines.push({text: 'In: '+fmtDate(checkin), size:'8px', color:'#666'});
       }
+      if (state._printShowName) lines.push({text: 'Show: '+state._printShowName, size:'8px', weight:'600', color:'#1d4ed8'});
       labels.push({lines, type:'shell'});
     }
   });
@@ -3497,6 +3498,7 @@ function closeLabelModal() {
   const inner = m.querySelector('div');
   if (inner) inner.style.width = '';
   window._lblStartPos = 0;
+  state._printShowName = '';
 }
 
 function labelSelectAll(selId) {
@@ -3674,10 +3676,10 @@ function exportShowData() {
 }
 
 function printShowLabels(showId) {
-  const {shells, shellAssignments} = state.data;
+  const {shellAssignments} = state.data;
   const sid = Number(showId);
+  const sh = state.shows.find(x => x.id === sid);
 
-  // All shell assignments for this show (both manual and bulk via case assignment)
   const showShellAssigns = (shellAssignments||[]).filter(a => a.showId === sid);
   const assignedShellIds = new Set(showShellAssigns.map(a => a.shellId));
 
@@ -3686,13 +3688,14 @@ function printShowLabels(showId) {
     return;
   }
 
+  // Store show name so labels can include it
+  state._printShowName = sh ? sh.name : '';
+
   openLabelModal();
   requestAnimationFrame(() => {
     const caseSel  = document.getElementById('case-sel');
     const shellSel = document.getElementById('shell-sel');
-    // Deselect all cases
     if (caseSel) [...caseSel.options].forEach(o => o.selected = false);
-    // Select only the shells assigned to this show
     if (shellSel) [...shellSel.options].forEach(o => {
       o.selected = assignedShellIds.has(Number(o.value)) || assignedShellIds.has(o.value);
     });
