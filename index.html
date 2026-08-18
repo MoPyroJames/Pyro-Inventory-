@@ -207,6 +207,15 @@ select option{background:var(--bg3);color:var(--text2)}
       <div class="hdr-sub" id="app-sub" title="Click to edit subtitle" onclick="startEditSub()" style="cursor:pointer;min-width:60px">ATF 5400.4 · Storage Inventory · Case &amp; Show Tracking</div>
     </div>
     <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
+      <!-- Cloud sync -->
+      <div style="display:flex;flex-direction:column;gap:3px;align-items:flex-end">
+        <div style="font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#555">Cloud sync</div>
+        <div style="display:flex;align-items:center;gap:4px">
+          <button class="btn-sm" style="font-size:11px;white-space:nowrap;background:#052e16;border-color:#166534;color:#4ade80" onclick="cloudSave()" title="Save to cloud">☁ Save</button>
+          <button class="btn-sm" style="font-size:11px;white-space:nowrap;background:#0c1a2e;border-color:#1e3a5f;color:#60a5fa" onclick="cloudLoad()" title="Load from cloud">☁ Load</button>
+          <span id="sync-status" style="font-size:10px;color:#555;min-width:60px"></span>
+        </div>
+      </div>
       <div style="display:flex;flex-direction:column;gap:3px;align-items:flex-end">
         <div style="font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#555">Active container</div>
         <div style="display:flex;align-items:center;gap:6px">
@@ -4186,7 +4195,98 @@ function dpApply() {
 
 function dpClear(){dp.sel=null;if(dp.cb)dp.cb(null);dpClose();}
 
-// ── Date picker callback registry ──────────────────────────────────────────
+// ── Cloud Sync (Supabase) ──────────────────────────────────────────────────
+const SUPA_URL  = 'https://trhcgpdyzoykgdorrzbf.supabase.co';
+const SUPA_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRyaGNncGR5em95a2dkb3JyemJmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcwNTk3MjAsImV4cCI6MjEwMjYzNTcyMH0.SzuvNtcugJRo0X7IPNQu-Dh65PcOdRrvPpX1sPPYLAE';
+const SUPA_PIN_KEY = 'pyro_sync_pin';
+
+function syncStatus(msg, color) {
+  const el = document.getElementById('sync-status');
+  if (el) { el.textContent = msg; el.style.color = color || '#555'; }
+}
+
+async function supaRequest(method, data) {
+  const opts = {
+    method,
+    headers: {
+      'apikey': SUPA_KEY,
+      'Authorization': 'Bearer ' + SUPA_KEY,
+      'Content-Type': 'application/json',
+      'Prefer': method === 'POST' ? 'resolution=merge-duplicates,return=minimal' : '',
+    },
+  };
+  if (data) opts.body = JSON.stringify(data);
+  const url = SUPA_URL + '/rest/v1/inventory' + (method === 'GET' ? '?key=eq.main&select=data' : '');
+  const res = await fetch(url, opts);
+  if (!res.ok) throw new Error(await res.text());
+  return method === 'GET' ? res.json() : null;
+}
+
+function getOrSetPin() {
+  let pin = localStorage.getItem(SUPA_PIN_KEY);
+  if (!pin) {
+    pin = prompt('Set a 4-digit PIN for cloud sync (you\'ll need this on other devices):');
+    if (!pin) return null;
+    pin = pin.trim();
+    if (!/^\d{4}$/.test(pin)) { alert('PIN must be exactly 4 digits.'); return null; }
+    localStorage.setItem(SUPA_PIN_KEY, pin);
+  }
+  return pin;
+}
+
+function verifyPin() {
+  const stored = localStorage.getItem(SUPA_PIN_KEY);
+  if (!stored) return getOrSetPin();
+  const entered = prompt('Enter your 4-digit sync PIN:');
+  if (!entered) return null;
+  if (entered.trim() !== stored) { alert('Incorrect PIN.'); return null; }
+  return stored;
+}
+
+async function cloudSave() {
+  const pin = getOrSetPin();
+  if (!pin) return;
+  syncStatus('Saving…', '#fbbf24');
+  try {
+    const payload = {
+      containers: JSON.parse(localStorage.getItem('fw_containers_v1')||'[]'),
+      shows: JSON.parse(localStorage.getItem('fw_shared_shows_v1')||'[]'),
+      title: localStorage.getItem('pyro_title')||'',
+      sub: localStorage.getItem('pyro_sub')||'',
+      pin,
+      savedAt: new Date().toISOString(),
+    };
+    await supaRequest('POST', [{key:'main', data: JSON.stringify(payload)}]);
+    syncStatus('Saved ✓', '#4ade80');
+    setTimeout(()=>syncStatus(''), 3000);
+  } catch(e) {
+    syncStatus('Error ✗', '#f87171');
+    alert('Cloud save failed: ' + e.message);
+  }
+}
+
+async function cloudLoad() {
+  const pin = verifyPin();
+  if (!pin) return;
+  syncStatus('Loading…', '#fbbf24');
+  try {
+    const rows = await supaRequest('GET');
+    if (!rows || !rows.length) { syncStatus('No data', '#f87171'); alert('No cloud data found. Save from another device first.'); return; }
+    const payload = JSON.parse(rows[0].data);
+    if (payload.pin !== pin) { syncStatus('Wrong PIN ✗', '#f87171'); alert('PIN does not match the saved data.'); return; }
+    // Restore
+    localStorage.setItem('fw_containers_v1', JSON.stringify(payload.containers||[]));
+    localStorage.setItem('fw_shared_shows_v1', JSON.stringify(payload.shows||[]));
+    if (payload.title) localStorage.setItem('pyro_title', payload.title);
+    if (payload.sub) localStorage.setItem('pyro_sub', payload.sub);
+    syncStatus('Loaded ✓', '#4ade80');
+    setTimeout(()=>{ syncStatus(''); location.reload(); }, 800);
+  } catch(e) {
+    syncStatus('Error ✗', '#f87171');
+    alert('Cloud load failed: ' + e.message);
+  }
+}
+
 // Avoids embedding backtick callbacks in onclick attributes (breaks HTML parsing)
 const dpRegistry = {};
 let dpRegSeq = 0;
