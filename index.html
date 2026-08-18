@@ -990,9 +990,10 @@ function renderShowDetail(el) {
           <select oninput="state.assignForm.caseId=this.value">
             <option value="">— select a case —</option>
             ${availCases.map(c=>{
-              const alreadyQty=assignments.filter(a=>a.caseId===c.id&&a.showId===sh.id).reduce((s,a)=>s+a.qty,0);
-              const avail=c.remainingShells-alreadyQty;
-              return `<option value="${c.id}"${assignForm.caseId==c.id?' selected':''}${avail<=0?' disabled':''}>${esc(c.catalogNum)} · ${esc(c.name)} — ${avail} avail${c.mfg?' · '+esc(c.mfg):''}</option>`;
+              const alreadyQty = assignments.filter(a=>a.caseId===c.id&&a.showId===sh.id).reduce((s,a)=>s+a.qty,0);
+              const assignedToOtherShows = (shellAssignments||[]).filter(a=>a.caseId===c.id&&a.showId!==sh.id).length;
+              const avail = c.remainingShells - alreadyQty - assignedToOtherShows;
+              return `<option value="${c.id}"${assignForm.caseId==c.id?' selected':''}${avail<=0?' disabled':''}>${esc(c.catalogNum)} · ${esc(c.name)} — ${Math.max(0,avail)} avail${c.mfg?' · '+esc(c.mfg):''}</option>`;
             }).join('')}
           </select>
         </div>
@@ -1005,15 +1006,17 @@ function renderShowDetail(el) {
     <div class="sec">Assign individual logged shells</div>
     <div class="card-pad">
       ${(()=>{
-        // Get cases that have logged shells not yet assigned to this show
-        const casesWithShells = cases.filter(c => shells.some(s => s.caseId === c.id && !shShellAssign.some(sa => sa.shellId === s.id)));
+        // Get all shell assignments across ALL shows
+        const allShellAssigned = new Set((shellAssignments||[]).map(a => a.shellId));
+        // Get cases that have logged shells not yet assigned to any show
+        const casesWithShells = cases.filter(c => shells.some(s => s.caseId === c.id && s.status !== 'used' && !allShellAssigned.has(s.id)));
         if (casesWithShells.length === 0) return '<div style="font-size:13px;color:#555">No individually logged shells available. Log shells in the Cases tab first.</div>';
         return `<div class="form-grid" style="grid-template-columns:1.5fr 3fr auto;align-items:flex-end">
           <div class="fld"><label>Case</label>
             <select id="sa-case-sel" onchange="state.assignForm.shellCaseId=this.value;renderTab('shows')">
               <option value="">— pick case —</option>
               ${casesWithShells.map(c => {
-                const cShells = shells.filter(s => s.caseId===c.id && !shShellAssign.some(sa=>sa.shellId===s.id));
+                const cShells = shells.filter(s => s.caseId===c.id && s.status!=='used' && !allShellAssigned.has(s.id));
                 return '<option value="' + c.id + '"' + (state.assignForm.shellCaseId==c.id?' selected':'') + '>' + esc(c.catalogNum) + ' · ' + esc(c.name) + ' (' + cShells.length + ' shells avail)</option>';
               }).join('')}
             </select>
@@ -1023,7 +1026,7 @@ function renderShowDetail(el) {
               ${(()=>{
                 if (!state.assignForm.shellCaseId) return '<span style="font-size:12px;color:#555">Select a case above</span>';
                 const cid = parseInt(state.assignForm.shellCaseId);
-                const availShells = shells.filter(s => s.caseId===cid && !shShellAssign.some(sa=>sa.shellId===s.id));
+                const availShells = shells.filter(s => s.caseId===cid && s.status!=='used' && !allShellAssigned.has(s.id));
                 if (!availShells.length) return '<span style="font-size:12px;color:#555">No unassigned shells in this case</span>';
                 if (!state.assignForm.selectedShells) state.assignForm.selectedShells = {};
                 return availShells.map(s => {
