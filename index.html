@@ -1283,13 +1283,17 @@ function renderReportTab() {
       return `<tr>
         <td class="td-sub"><span class="mono-tag" style="font-size:11px">↳ ${esc(s.shellNum)}</span></td>
         <td class="td-sub">${esc(s.desc)}</td>
-        <td class="td-sub" colspan="2"></td>
+        <td class="td-sub">${badge(c.cls)}</td>
+        <td class="td-sub" style="font-size:11px;color:#888">${esc(c.mfg||'—')}</td>
+        <td class="td-sub" style="font-size:11px;color:#60a5fa">${esc(c.purchasedFrom||'—')}</td>
+        <td class="td-sub" style="font-family:var(--mono);font-size:11px;color:#fbbf24">${esc(c.exNum||'—')}</td>
+        <td class="td-sub" style="font-size:11px;color:#aaa">${esc(c.productType||'Shell')}</td>
         <td class="td-sub" style="text-align:right;font-family:var(--mono)">${lbs(s.newW)}</td>
         <td class="td-sub" style="text-align:right">1/1</td>
         <td class="td-sub" style="text-align:right;font-family:var(--mono)">${lbs(s.newW)}</td>
         <td class="td-sub">${shellDisplayStatus(s.id)}</td>
         <td class="td-sub"></td>
-        <td class="td-sub" style="font-family:var(--mono);font-size:11px;color:#888">
+        <td class="td-sub" style="font-family:var(--mono);font-size:11px;color:#86efac">
           ${sIn}
           <br>${dpBtn(s.addedAt||'',iso=>{updateLogTs('shell',s.id,iso);renderTab('report')},'Set date')}
         </td>
@@ -1300,6 +1304,7 @@ function renderReportTab() {
             : dpBtn(s.usedAt,iso=>{updateLogTs('shellused',s.id,iso);renderTab('report')},'Set date')
           ) : ''}
         </td>
+        <td class="td-sub"></td>
       </tr>`;
     }).join('');
     return [`<tr style="${c.hideFromReport?'opacity:0.45;':''}">
@@ -2307,11 +2312,15 @@ function printReport(direction) {
         const outTs = rmEntry ? rmEntry.removedAt : s.usedAt;
         const sOut = outTs?(()=>{const d=new Date(outTs).toISOString().slice(0,10);const[y,m,day]=d.split('-');return m+'/'+day+'/'+y;})():'—';
         const outStyle = outTs ? 'color:#991b1b;font-family:monospace;font-weight:600' : 'color:#aaa';
-        // 14 cols: Shell#, Desc, [Class,Mfg,PurchFrom,EX#,Type=colspan5], NEW/unit, Rem/Tot, TotalNEW, Status, Show, Check-in, Check-out
+        // 14 cols: Shell#, Desc, Class, Mfg, PurchFrom, EX#, Type, NEW/unit, Rem/Tot, TotalNEW, Status, Show, Check-in, Check-out
         return `<tr class="shell-row">
           <td>${s.shellNum}</td>
           <td>${s.desc}</td>
-          <td colspan="5"></td>
+          <td>${CLASS_LABELS[c.cls]||c.cls||'—'}</td>
+          <td>${c.mfg||'—'}</td>
+          <td style="color:#60a5fa">${c.purchasedFrom||'—'}</td>
+          <td style="color:#b45309;font-family:monospace">${c.exNum||'—'}</td>
+          <td>${c.productType||'Shell'}</td>
           <td style="text-align:right">${lbs(s.newW)}</td>
           <td style="text-align:right">1/1</td>
           <td style="text-align:right">${lbs(s.newW)}</td>
