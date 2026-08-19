@@ -3754,20 +3754,20 @@ function buildLabelData() {
     if (!c) return;
     for (let i=0; i<caseCopies; i++) {
       const lines = [];
-      lines.push({text: c.catalogNum,   size:'13px', weight:'700', mono:true, color:'#000'});
-      lines.push({text: c.name,         size:'9px',  weight:'600', color:'#111', wrap:true});
-      if (showMfg && c.mfg) lines.push({text: c.mfg, size:'8px', color:'#444'});
+      lines.push({text: c.catalogNum,   size:'15px', weight:'700', mono:true, color:'#000'});
+      lines.push({text: c.name,         size:'11px', weight:'600', color:'#111', wrap:true});
+      if (showMfg && c.mfg) lines.push({text: c.mfg, size:'9px', color:'#444'});
       const meta = [];
       if (c.shellSize) meta.push(c.shellSize);
       if (showCls) meta.push(CLASS_LABEL[c.cls]||c.cls);
       if (showEx && c.exNum) meta.push('EX: '+c.exNum);
       if (showNew && c.newW) meta.push(lbs(c.newW)+' lbs/unit');
-      if (meta.length) lines.push({text: meta.join('  ·  '), size:'8px', color:'#555'});
+      if (meta.length) lines.push({text: meta.join('  ·  '), size:'9px', color:'#555'});
       const meta2 = [];
       if (showCont && containerName) meta2.push(containerName);
       meta2.push(c.totalShells+' units');
       if (showDate && c.createdAt) meta2.push('In: '+fmtDate(c.createdAt));
-      lines.push({text: meta2.join('  ·  '), size:'8px', color:'#666'});
+      lines.push({text: meta2.join('  ·  '), size:'9px', color:'#666'});
       labels.push({lines, type:'case'});
     }
   });
@@ -3778,23 +3778,23 @@ function buildLabelData() {
     const pc = cases.find(x=>x.id===s.caseId);
     for (let i=0; i<shellCopies; i++) {
       const lines = [];
-      lines.push({text: s.shellNum, size:'13px', weight:'700', mono:true, color:'#000'});
-      lines.push({text: s.desc,     size:'9px',  weight:'600', color:'#111', wrap:true});
+      lines.push({text: s.shellNum, size:'15px', weight:'700', mono:true, color:'#000'});
+      lines.push({text: s.desc,     size:'11px', weight:'600', color:'#111', wrap:true});
       if (pc) {
-        if (showMfg && pc.mfg) lines.push({text: pc.mfg, size:'8px', color:'#444'});
+        if (showMfg && pc.mfg) lines.push({text: pc.mfg, size:'9px', color:'#444'});
         const meta = [];
         if (pc.shellSize) meta.push(pc.shellSize);
         if (showCls) meta.push(CLASS_LABEL[pc.cls]||pc.cls);
         if (showEx && pc.exNum) meta.push('EX: '+pc.exNum);
         if (showNew && s.newW) meta.push(lbs(s.newW)+' lbs');
-        if (meta.length) lines.push({text: meta.join('  ·  '), size:'8px', color:'#555'});
+        if (meta.length) lines.push({text: meta.join('  ·  '), size:'9px', color:'#555'});
       }
-      if (showCont && containerName) lines.push({text: containerName, size:'8px', color:'#666'});
+      if (showCont && containerName) lines.push({text: containerName, size:'9px', color:'#666'});
       if (showDate) {
         const checkin = s.addedAt || (pc && pc.createdAt);
-        if (checkin) lines.push({text: 'In: '+fmtDate(checkin), size:'8px', color:'#666'});
+        if (checkin) lines.push({text: 'In: '+fmtDate(checkin), size:'9px', color:'#666'});
       }
-      if (state._printShowName) lines.push({text: 'Show: '+state._printShowName, size:'8px', weight:'600', color:'#1d4ed8'});
+      if (state._printShowName) lines.push({text: 'Show: '+state._printShowName, size:'9px', weight:'600', color:'#1d4ed8'});
       labels.push({lines, type:'shell'});
     }
   });
@@ -3829,10 +3829,10 @@ function updateLabelPreview() {
   }
   labels.forEach(({lines, type}) => {
     const inner = lines.map(l =>
-      `<div style="font-size:${l.size};font-weight:${l.weight||'400'};color:${l.color||'#000'};font-family:${l.mono?'monospace':'Arial,sans-serif'};line-height:1.15;${l.wrap?'white-space:normal;word-break:break-word;':'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'}">${esc(l.text)}</div>`
+      `<div style="font-size:${l.size};font-weight:${l.weight||'400'};color:${l.color||'#000'};font-family:${l.mono?'monospace':'Arial,sans-serif'};line-height:1.1;${l.wrap?'white-space:normal;word-break:break-word;':'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'}">${esc(l.text)}</div>`
     ).join('');
     const borderColor = type==='case' ? '#d97706' : '#3b82f6';
-    cells += `<div style="width:158px;min-height:60px;padding:4px 6px;border:1px solid #ccc;border-left:3px solid ${borderColor};background:#fff;display:flex;flex-direction:column;justify-content:center;overflow:hidden;flex-shrink:0">${inner}</div>`;
+    cells += `<div style="width:158px;min-height:60px;padding:4px 6px;border:1px solid #ccc;background:linear-gradient(to right,${borderColor} 4px,#fff 4px);display:flex;flex-direction:column;justify-content:center;overflow:hidden;flex-shrink:0">${inner}</div>`;
   });
   // Pad to fill last row
   const total = startPos + labels.length;
@@ -3916,7 +3916,7 @@ function printLabels() {
   labels.forEach(({lines, type}) => {
     const borderColor = type === 'case' ? '#d97706' : '#3b82f6';
     const inner = lines.map(l =>
-      `<div style="font-size:${l.size};font-weight:${l.weight||'400'};color:${l.color||'#000'};font-family:${l.mono?'monospace':'Arial,sans-serif'};line-height:1.15;${l.wrap?'white-space:normal;word-break:break-word;':'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'}max-width:100%">${l.text}</div>`
+      `<div style="font-size:${l.size};font-weight:${l.weight||'400'};color:${l.color||'#000'};font-family:${l.mono?'monospace':'Arial,sans-serif'};line-height:1.1;${l.wrap?'white-space:normal;word-break:break-word;':'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'}max-width:100%">${l.text}</div>`
     ).join('');
     labelHTML += `<div class="lbl" style="background:linear-gradient(to right, ${borderColor} 4pt, #fff 4pt);-webkit-print-color-adjust:exact;print-color-adjust:exact;color-adjust:exact">${inner}</div>`;
   });
