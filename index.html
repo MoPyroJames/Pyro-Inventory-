@@ -5008,6 +5008,7 @@ async function cloudSave() {
       shows: localStorage.getItem('fw_shared_shows_v1') || '[]',
       title: localStorage.getItem('pyro_title') || '',
       sub: localStorage.getItem('pyro_sub') || '',
+      appPassword: localStorage.getItem('pyro_app_password') || '',
     });
     const gistId = localStorage.getItem(GIST_ID_KEY);
     const url = gistId ? 'https://api.github.com/gists/' + gistId : 'https://api.github.com/gists';
@@ -5072,6 +5073,7 @@ async function cloudLoad() {
     localStorage.setItem('fw_shared_shows_v1', payload.shows);
     if (payload.title) localStorage.setItem('pyro_title', payload.title);
     if (payload.sub)   localStorage.setItem('pyro_sub', payload.sub);
+    if (payload.appPassword) localStorage.setItem('pyro_app_password', payload.appPassword);
     syncStatus('Loaded ✓', '#4ade80');
     alert('Loaded! Saved: ' + new Date(payload.savedAt).toLocaleString() + '\n\nReloading now.');
     setTimeout(() => location.reload(), 500);
