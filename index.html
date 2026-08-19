@@ -2621,11 +2621,11 @@ function renderLogTab() {
     return `<tr>
       <td>${dirBadge}</td>
       <td>${typeBadge}</td>
-      <td>${idCell}</td>
-      <td>${descCell}</td>
+      <td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${idCell}</td>
+      <td style="overflow:hidden">${descCell}</td>
       <td>${t.cls ? badge(t.cls) : ''}</td>
       <td style="font-family:var(--mono);font-size:12px;text-align:right">${t.newW ? lbs(t.newW) : '—'}</td>
-      <td>${showBadges}${noteBits.join(' ')}</td>
+      <td style="overflow:hidden">${showBadges}${noteBits.join(' ')}</td>
       <td>
         <div>${tsDisplay(t.ts)}</div>
         <div style="margin-top:4px">
@@ -2633,9 +2633,9 @@ function renderLogTab() {
         </div>
       </td>
       ${t._kind==='out' ? `<td style="white-space:nowrap">
-        <div style="display:flex;gap:4px">
-          <button class="btn-sm" style="font-size:11px;background:#0d1f0d;border-color:#166534;color:#4ade80;white-space:nowrap" onclick="returnToContainer(${t._logId})" title="Return this item to the container">↩ Return</button>
-          <button class="btn-danger" style="font-size:11px" onclick="clearLogEntry(${t._logId})" title="Remove log entry only">×</button>
+        <div style="display:flex;gap:3px;flex-wrap:wrap">
+          <button class="btn-sm" style="font-size:10px;padding:2px 6px;background:#0d1f0d;border-color:#166534;color:#4ade80;white-space:nowrap" onclick="returnToContainer(${t._logId})" title="Return to container">↩ Return</button>
+          <button class="btn-danger" style="font-size:10px;padding:2px 6px" onclick="clearLogEntry(${t._logId})" title="Remove log entry only">×</button>
         </div>
       </td>` : '<td></td>'}
     </tr>`;
@@ -2678,14 +2678,14 @@ function renderLogTab() {
       </div>
       ${filtered.length===0
         ? `<div class="empty">${txns.length===0?'No transactions yet.':'No entries match your filter.'}</div>`
-        : `<div style="overflow-x:auto"><table>
+        : `<div style="overflow-x:hidden"><table style="table-layout:fixed;width:100%">
             <colgroup>
-              <col style="width:6%"><col style="width:6%"><col style="width:9%"><col style="width:22%">
-              <col style="width:6%"><col style="width:8%"><col style="width:16%"><col style="width:23%"><col style="width:4%">
+              <col style="width:5%"><col style="width:5%"><col style="width:10%"><col style="width:20%">
+              <col style="width:5%"><col style="width:7%"><col style="width:14%"><col style="width:20%"><col style="width:14%">
             </colgroup>
             <thead><tr>
               <th>Dir</th><th>Type</th><th>ID</th><th>Description</th>
-              <th>Class</th><th>NEW (lbs)</th><th>Shows / Notes</th><th>Timestamp <span style="font-weight:400;font-size:10px;color:#555">(click to adjust)</span></th><th></th>
+              <th>Class</th><th>NEW (lbs)</th><th>Shows / Notes</th><th>Timestamp <span style="font-weight:400;font-size:10px;color:#555">(click to adjust)</span></th><th>Actions</th>
             </tr></thead>
             <tbody>${rows}</tbody>
           </table></div>`}
