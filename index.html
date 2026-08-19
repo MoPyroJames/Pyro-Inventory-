@@ -207,6 +207,7 @@ select option{background:var(--bg3);color:var(--text2)}
       <div class="hdr-sub" id="app-sub" title="Click to edit subtitle" onclick="startEditSub()" style="cursor:pointer;min-width:60px">ATF 5400.4 · Storage Inventory · Case &amp; Show Tracking</div>
     </div>
     <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
+      <button id="hdr-lock-btn" class="btn-sm" style="font-size:11px;white-space:nowrap" onclick="lockApp()">🔒 Lock</button>
       <!-- Cloud sync -->
       <div style="display:flex;flex-direction:column;gap:3px;align-items:flex-end">
         <div style="font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#555">Cloud sync</div>
@@ -4653,7 +4654,181 @@ function saveSub() {
 
 render();
 loadTitles();
+
+// ── Password Lock ─────────────────────────────────────────────────────────
+const LOCK_KEY = 'pyro_app_password';
+const SESSION_KEY = 'pyro_unlocked';
+
+function isUnlocked() {
+  return sessionStorage.getItem(SESSION_KEY) === '1';
+}
+
+function showLockScreen() {
+  const hasPassword = !!localStorage.getItem(LOCK_KEY);
+  const overlay = document.getElementById('lock-overlay');
+  const lockTitle = document.getElementById('lock-title');
+  const lockSub = document.getElementById('lock-sub');
+  const lockBtn = document.getElementById('lock-btn');
+
+  if (!hasPassword) {
+    lockTitle.textContent = 'Set a Password';
+    lockSub.textContent = 'Create a password to protect this app.';
+    lockBtn.textContent = 'Set Password';
+  } else {
+    lockTitle.textContent = 'Pyro Inventory';
+    lockSub.textContent = 'Enter your password to continue.';
+    lockBtn.textContent = 'Unlock';
+  }
+  overlay.style.display = 'flex';
+  setTimeout(() => document.getElementById('lock-input').focus(), 100);
+}
+
+function lockSubmit() {
+  const input = document.getElementById('lock-input').value.trim();
+  const error = document.getElementById('lock-error');
+  const stored = localStorage.getItem(LOCK_KEY);
+
+  if (!input) { error.textContent = 'Please enter a password.'; return; }
+
+  if (!stored) {
+    // Setting password for first time — confirm it
+    const confirm = document.getElementById('lock-confirm').value.trim();
+    if (!confirm) { error.textContent = 'Please confirm your password.'; return; }
+    if (input !== confirm) { error.textContent = 'Passwords do not match.'; return; }
+    localStorage.setItem(LOCK_KEY, btoa(input));
+    sessionStorage.setItem(SESSION_KEY, '1');
+    document.getElementById('lock-overlay').style.display = 'none';
+    error.textContent = '';
+  } else {
+    if (btoa(input) !== stored) {
+      error.textContent = 'Incorrect password.';
+      document.getElementById('lock-input').value = '';
+      document.getElementById('lock-input').focus();
+      return;
+    }
+    sessionStorage.setItem(SESSION_KEY, '1');
+    document.getElementById('lock-overlay').style.display = 'none';
+    error.textContent = '';
+  }
+  // Update lock button in header
+  updateLockBtn();
+}
+
+function lockApp() {
+  sessionStorage.removeItem(SESSION_KEY);
+  document.getElementById('lock-overlay').style.display = 'flex';
+  document.getElementById('lock-input').value = '';
+  document.getElementById('lock-confirm').value = '';
+  document.getElementById('lock-error').textContent = '';
+  const stored = localStorage.getItem(LOCK_KEY);
+  document.getElementById('lock-title').textContent = stored ? 'Pyro Inventory' : 'Set a Password';
+  document.getElementById('lock-sub').textContent = stored ? 'Enter your password to continue.' : 'Create a password to protect this app.';
+  document.getElementById('lock-btn').textContent = stored ? 'Unlock' : 'Set Password';
+  document.getElementById('lock-confirm-row').style.display = stored ? 'none' : '';
+  setTimeout(() => document.getElementById('lock-input').focus(), 100);
+  updateLockBtn();
+}
+
+function changePassword() {
+  const newPw = prompt('Enter new password (leave blank to remove password):');
+  if (newPw === null) return;
+  if (!newPw.trim()) {
+    if (confirm('Remove password protection?')) {
+      localStorage.removeItem(LOCK_KEY);
+      alert('Password removed.');
+    }
+    return;
+  }
+  const confirm2 = prompt('Confirm new password:');
+  if (confirm2 !== newPw) { alert('Passwords do not match.'); return; }
+  localStorage.setItem(LOCK_KEY, btoa(newPw.trim()));
+  alert('Password updated.');
+}
+
+function updateLockBtn() {
+  const btn = document.getElementById('hdr-lock-btn');
+  if (btn) btn.textContent = isUnlocked() ? '🔓 Lock' : '🔒 Locked';
+}
+
+// Init lock on page load
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('lock-input').addEventListener('input', () => {
+    const stored = localStorage.getItem(LOCK_KEY);
+    document.getElementById('lock-confirm-row').style.display = stored ? 'none' : '';
+  });
+
+  document.getElementById('lock-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      const stored = localStorage.getItem(LOCK_KEY);
+      if (!stored) document.getElementById('lock-confirm').focus();
+      else lockSubmit();
+    }
+  });
+
+  document.getElementById('lock-confirm').addEventListener('keydown', e => {
+    if (e.key === 'Enter') lockSubmit();
+  });
+
+  if (!isUnlocked()) {
+    showLockScreen();
+    document.getElementById('lock-confirm-row').style.display = localStorage.getItem(LOCK_KEY) ? 'none' : '';
+  }
+  updateLockBtn();
+});
+
 </script>
+
+<!-- ── Lock Overlay ───────────────────────────────────────────────────── -->
+<style>
+#lock-overlay {
+  position:fixed;inset:0;z-index:9999;
+  background:linear-gradient(135deg,#0a0a14 0%,#0f1a2e 60%,#0a1a0a 100%);
+  display:none;align-items:center;justify-content:center;flex-direction:column;
+}
+#lock-box {
+  background:#111;border:1px solid #2a2a2a;border-radius:14px;
+  padding:40px 44px;width:360px;max-width:92vw;text-align:center;
+  box-shadow:0 8px 40px rgba(0,0,0,.6);
+}
+#lock-box .lock-icon { font-size:48px;margin-bottom:16px; }
+#lock-box h2 { font-size:20px;font-weight:900;color:#e5e5e5;margin-bottom:6px;letter-spacing:-.02em; }
+#lock-box p  { font-size:13px;color:#555;margin-bottom:24px; }
+#lock-box input {
+  width:100%;padding:11px 14px;background:#0d0d0d;
+  border:1px solid #2a2a2a;border-radius:7px;color:#e5e5e5;
+  font-size:15px;margin-bottom:10px;outline:none;
+}
+#lock-box input:focus { border-color:#fbbf24; }
+#lock-btn {
+  width:100%;padding:12px;background:linear-gradient(90deg,#d97706,#b45309);
+  border:none;border-radius:7px;color:#fff;font-size:15px;font-weight:800;
+  cursor:pointer;margin-top:4px;letter-spacing:.02em;
+}
+#lock-btn:hover { background:linear-gradient(90deg,#f59e0b,#d97706); }
+#lock-error { color:#f87171;font-size:12px;margin-top:10px;min-height:18px; }
+#lock-box .lock-sub-links { margin-top:16px;font-size:11px;color:#444; }
+#lock-box .lock-sub-links button {
+  background:none;border:none;color:#555;font-size:11px;cursor:pointer;
+  text-decoration:underline;padding:0;
+}
+#lock-box .lock-sub-links button:hover { color:#aaa; }
+</style>
+<div id="lock-overlay">
+  <div id="lock-box">
+    <div class="lock-icon">🔒</div>
+    <h2 id="lock-title">Pyro Inventory</h2>
+    <p id="lock-sub">Enter your password to continue.</p>
+    <input id="lock-input" type="password" placeholder="Password" autocomplete="current-password">
+    <div id="lock-confirm-row" style="display:none">
+      <input id="lock-confirm" type="password" placeholder="Confirm password" autocomplete="new-password">
+    </div>
+    <button id="lock-btn" onclick="lockSubmit()">Unlock</button>
+    <div id="lock-error"></div>
+    <div class="lock-sub-links">
+      <button onclick="changePassword()">Change password</button>
+    </div>
+  </div>
+</div>
 
 <!-- ── Shared Date Picker popup (singleton) ────────────────────────────── -->
 <div id="dp-pop" class="dp-pop dp-hidden" role="dialog">
