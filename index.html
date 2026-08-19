@@ -3754,20 +3754,20 @@ function buildLabelData() {
     if (!c) return;
     for (let i=0; i<caseCopies; i++) {
       const lines = [];
-      lines.push({text: c.catalogNum,   size:'15px', weight:'700', mono:true, color:'#000'});
-      lines.push({text: c.name,         size:'11px', weight:'600', color:'#111', wrap:true});
-      if (showMfg && c.mfg) lines.push({text: c.mfg, size:'9px', color:'#444'});
+      lines.push({text: c.catalogNum,   size:'17px', weight:'700', mono:true, color:'#000'});
+      lines.push({text: c.name,         size:'12px', weight:'600', color:'#111', wrap:true});
+      if (showMfg && c.mfg) lines.push({text: c.mfg, size:'10px', color:'#444'});
       const meta = [];
       if (c.shellSize) meta.push(c.shellSize);
       if (showCls) meta.push(CLASS_LABEL[c.cls]||c.cls);
       if (showEx && c.exNum) meta.push('EX: '+c.exNum);
       if (showNew && c.newW) meta.push(lbs(c.newW)+' lbs/unit');
-      if (meta.length) lines.push({text: meta.join('  ·  '), size:'9px', color:'#555'});
+      if (meta.length) lines.push({text: meta.join('  ·  '), size:'10px', color:'#555'});
       const meta2 = [];
       if (showCont && containerName) meta2.push(containerName);
       meta2.push(c.totalShells+' units');
       if (showDate && c.createdAt) meta2.push('In: '+fmtDate(c.createdAt));
-      lines.push({text: meta2.join('  ·  '), size:'9px', color:'#666'});
+      lines.push({text: meta2.join('  ·  '), size:'10px', color:'#666'});
       labels.push({lines, type:'case'});
     }
   });
@@ -3778,23 +3778,23 @@ function buildLabelData() {
     const pc = cases.find(x=>x.id===s.caseId);
     for (let i=0; i<shellCopies; i++) {
       const lines = [];
-      lines.push({text: s.shellNum, size:'15px', weight:'700', mono:true, color:'#000'});
-      lines.push({text: s.desc,     size:'11px', weight:'600', color:'#111', wrap:true});
+      lines.push({text: s.shellNum, size:'17px', weight:'700', mono:true, color:'#000'});
+      lines.push({text: s.desc,     size:'12px', weight:'600', color:'#111', wrap:true});
       if (pc) {
-        if (showMfg && pc.mfg) lines.push({text: pc.mfg, size:'9px', color:'#444'});
+        if (showMfg && pc.mfg) lines.push({text: pc.mfg, size:'10px', color:'#444'});
         const meta = [];
         if (pc.shellSize) meta.push(pc.shellSize);
         if (showCls) meta.push(CLASS_LABEL[pc.cls]||pc.cls);
         if (showEx && pc.exNum) meta.push('EX: '+pc.exNum);
         if (showNew && s.newW) meta.push(lbs(s.newW)+' lbs');
-        if (meta.length) lines.push({text: meta.join('  ·  '), size:'9px', color:'#555'});
+        if (meta.length) lines.push({text: meta.join('  ·  '), size:'10px', color:'#555'});
       }
-      if (showCont && containerName) lines.push({text: containerName, size:'9px', color:'#666'});
+      if (showCont && containerName) lines.push({text: containerName, size:'10px', color:'#666'});
       if (showDate) {
         const checkin = s.addedAt || (pc && pc.createdAt);
-        if (checkin) lines.push({text: 'In: '+fmtDate(checkin), size:'9px', color:'#666'});
+        if (checkin) lines.push({text: 'In: '+fmtDate(checkin), size:'10px', color:'#666'});
       }
-      if (state._printShowName) lines.push({text: 'Show: '+state._printShowName, size:'9px', weight:'600', color:'#1d4ed8'});
+      if (state._printShowName) lines.push({text: 'Show: '+state._printShowName, size:'10px', weight:'600', color:'#1d4ed8'});
       labels.push({lines, type:'shell'});
     }
   });
@@ -3930,7 +3930,7 @@ function printLabels() {
   .sheet {
     width: 8.5in;
     padding-top: 0.5in;
-    padding-left: 0.19in;
+    padding-left: 0.09in;
     display: grid;
     grid-template-columns: repeat(3, 2.625in);
     grid-template-rows: repeat(10, 1in);
