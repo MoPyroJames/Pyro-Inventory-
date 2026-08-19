@@ -1329,16 +1329,14 @@ function renderReportTab() {
         ${checkoutStr}
         ${caseRmEntry ? '<br>'+dpBtn(caseRmEntry.removedAt||'',iso=>{updateLogTs('removal',caseRmEntry.id,iso);renderTab('report')},'Set date') : ''}
       </td>
+      <td style="font-size:11px;color:#fbbf24;max-width:120px;word-break:break-word;white-space:pre-wrap">${esc(c.notes||'—')}</td>
       <td style="text-align:center;white-space:nowrap">
         <button onclick="toggleHideFromReport('${c.id}')" title="${c.hideFromReport?'Restore to ATF report':'Remove from ATF report'}"
           style="font-size:11px;padding:3px 10px;border-radius:4px;border:1px solid ${c.hideFromReport?'#16a34a':'#7f1d1d'};background:${c.hideFromReport?'#052e16':'#1a0505'};color:${c.hideFromReport?'#4ade80':'#f87171'};cursor:pointer;white-space:nowrap;font-weight:600">
           ${c.hideFromReport ? '✓ Restore' : '✕ Remove'}
         </button>
       </td>
-    </tr>
-    ${c.notes ? `<tr><td colspan="14" style="padding:4px 14px 8px;font-size:11px;color:#888;font-style:italic;background:#080808;border-bottom:1px solid #111">
-      <span style="color:#555;font-weight:700;text-transform:uppercase;letter-spacing:.04em;font-size:10px;font-style:normal">Notes: </span>${esc(c.notes)}
-    </td></tr>` : ''}`, shellRows];
+    </tr>`, shellRows];
   }).flat().join('');
 
   const showRows = shows.map(sh=>{
@@ -1388,6 +1386,7 @@ function renderReportTab() {
       <td style="font-size:12px;color:#888">${esc(showName)}</td>
       <td style="font-family:var(--mono);font-size:11px;color:#86efac">${checkinStr}</td>
       <td style="font-family:var(--mono);font-size:11px;color:#fca5a5">${usedStr}</td>
+      <td style="font-size:11px;color:#fbbf24;max-width:120px;word-break:break-word">${esc(c.notes||s.notes||'—')}</td>
       <td style="text-align:center">
         <button onclick="toggleHideFromReport('${c.id}')" title="${c.hideFromReport?'Restore':'Remove from report'}"
           style="font-size:11px;padding:3px 10px;border-radius:4px;border:1px solid ${c.hideFromReport?'#16a34a':'#7f1d1d'};background:${c.hideFromReport?'#052e16':'#1a0505'};color:${c.hideFromReport?'#4ade80':'#f87171'};cursor:pointer;white-space:nowrap;font-weight:600">
@@ -1426,9 +1425,9 @@ function renderReportTab() {
       <div style="overflow-x:auto;margin-bottom:20px">
         <table>
           <colgroup><col style="width:7%"><col style="width:12%"><col style="width:5%"><col style="width:7%"><col style="width:8%"><col style="width:5%"><col style="width:6%"><col style="width:6%"><col style="width:7%"><col style="width:6%"><col style="width:9%"><col style="width:7%"><col style="width:7%"><col style="width:7%"></colgroup>
-          <thead><tr><th>Catalog #</th><th>Description</th><th>Class</th><th>Manufacturer</th><th>Purchased From</th><th>EX #</th><th>Type</th><th>NEW/unit (lbs)</th><th>Units rem/tot</th><th>Case NEW (lbs)</th><th>Status</th><th>Assigned to show(s)</th><th style="color:#86efac">Check-in</th><th style="color:#fca5a5">Check-out</th><th style="color:#f87171">Remove</th></tr></thead>
-          <tbody>${caseRows||`<tr><td colspan="15" class="empty">No cases recorded.</td></tr>`}</tbody>
-          ${reportCases.length>0?`<tfoot><tr><td colspan="8">Totals</td><td style="font-family:var(--mono)">${tRem}/${tTot}</td><td style="font-family:var(--mono)">${lbs(tNEW)} lbs</td><td colspan="5"></td></tr></tfoot>`:''}
+          <thead><tr><th>Catalog #</th><th>Description</th><th>Class</th><th>Manufacturer</th><th>Purchased From</th><th>EX #</th><th>Type</th><th>NEW/unit (lbs)</th><th>Units rem/tot</th><th>Case NEW (lbs)</th><th>Status</th><th>Assigned to show(s)</th><th style="color:#86efac">Check-in</th><th style="color:#fca5a5">Check-out</th><th style="color:#fbbf24">Notes</th><th style="color:#f87171">Remove</th></tr></thead>
+          <tbody>${caseRows||`<tr><td colspan="16" class="empty">No cases recorded.</td></tr>`}</tbody>
+          ${reportCases.length>0?`<tfoot><tr><td colspan="8">Totals</td><td style="font-family:var(--mono)">${tRem}/${tTot}</td><td style="font-family:var(--mono)">${lbs(tNEW)} lbs</td><td colspan="6"></td></tr></tfoot>`:''}
         </table>
       </div>
 
@@ -1437,9 +1436,9 @@ function renderReportTab() {
       <div style="overflow-x:auto;margin-bottom:20px">
         <table>
           <colgroup><col style="width:7%"><col style="width:12%"><col style="width:5%"><col style="width:7%"><col style="width:8%"><col style="width:5%"><col style="width:6%"><col style="width:6%"><col style="width:7%"><col style="width:6%"><col style="width:9%"><col style="width:7%"><col style="width:7%"><col style="width:7%"></colgroup>
-          <thead><tr><th>Shell #</th><th>Description</th><th>Class</th><th>Manufacturer</th><th>Purchased From</th><th>EX #</th><th>Type</th><th>NEW (lbs)</th><th>Rem/Tot</th><th>Total NEW (lbs)</th><th>Status</th><th>Assigned to show(s)</th><th style="color:#86efac">Check-in</th><th style="color:#fca5a5">Used date</th><th style="color:#f87171">Remove</th></tr></thead>
+          <thead><tr><th>Shell #</th><th>Description</th><th>Class</th><th>Manufacturer</th><th>Purchased From</th><th>EX #</th><th>Type</th><th>NEW (lbs)</th><th>Rem/Tot</th><th>Total NEW (lbs)</th><th>Status</th><th>Assigned to show(s)</th><th style="color:#86efac">Check-in</th><th style="color:#fca5a5">Used date</th><th style="color:#fbbf24">Notes</th><th style="color:#f87171">Remove</th></tr></thead>
           <tbody>${singleRows}</tbody>
-          <tfoot><tr><td colspan="8">Totals</td><td>${reportSingles.length}/${reportSingles.length}</td><td style="font-family:var(--mono)">${lbs(reportSingles.reduce((s,c)=>s+c.newW,0))} lbs</td><td colspan="5"></td></tr></tfoot>
+          <tfoot><tr><td colspan="8">Totals</td><td>${reportSingles.length}/${reportSingles.length}</td><td style="font-family:var(--mono)">${lbs(reportSingles.reduce((s,c)=>s+c.newW,0))} lbs</td><td colspan="6"></td></tr></tfoot>
         </table>
       </div>`:''}
 
@@ -2313,7 +2312,6 @@ function printReport(direction) {
         const outTs = rmEntry ? rmEntry.removedAt : s.usedAt;
         const sOut = outTs?(()=>{const d=new Date(outTs).toISOString().slice(0,10);const[y,m,day]=d.split('-');return m+'/'+day+'/'+y;})():'—';
         const outStyle = outTs ? 'color:#991b1b;font-family:monospace;font-weight:600' : 'color:#aaa';
-        const shellNotesRow = s.notes ? `<tr style="background:#f0f8ff"><td colspan="14" style="padding:3px 10px 4px 28px;font-size:8px;color:#1e40af;font-style:italic;border-bottom:1px solid #dbeafe"><span style="font-weight:700;font-style:normal">Notes: </span>${s.notes}</td></tr>` : '';
         return `<tr class="shell-row">
           <td>${s.shellNum}</td>
           <td>${s.desc}</td>
@@ -2329,10 +2327,10 @@ function printReport(direction) {
           <td></td>
           <td style="font-family:monospace;color:#16543a">${sIn}</td>
           <td style="${outStyle}">${sOut}</td>
-        </tr>${shellNotesRow}`;
+          <td style="color:#1e40af;font-size:8px;font-style:italic">${s.notes||''}</td>
+        </tr>`;
       }).join('');
-      const notesRow = c.notes ? `<tr style="background:#fffbeb"><td colspan="14" style="padding:3px 10px 4px 20px;font-size:8.5px;color:#92400e;font-style:italic;border-bottom:1px solid #fde68a"><span style="font-weight:700;font-style:normal;color:#b45309">Notes: </span>${c.notes}</td></tr>` : '';
-      return `<tr><td>${c.catalogNum}</td><td>${c.name}</td><td>${CLASS_LABELS[c.cls]||c.cls}</td><td>${c.mfg||'—'}</td><td style="color:#60a5fa">${c.purchasedFrom||'—'}</td><td style="color:#b45309;font-family:monospace">${c.exNum||'—'}</td><td>${c.productType||'Shell'}</td><td style="text-align:right;font-weight:600">${lbs(c.newW)}</td><td style="text-align:right;font-weight:600">${c.remainingShells}/${c.totalShells}</td><td style="text-align:right;font-weight:700;color:#0f3460">${lbs(c.totalShells*c.newW)}</td><td><span class="badge-${st}">${(CASE_STATUS[st]||{label:st}).label}</span></td><td style="color:#1e40af;font-size:9px">${showNames||'—'}</td><td style="font-family:monospace;color:#16543a;font-weight:600">${checkin}</td><td>—</td></tr>${notesRow}${shellSubRows}`;
+      return `<tr><td>${c.catalogNum}</td><td>${c.name}</td><td>${CLASS_LABELS[c.cls]||c.cls}</td><td>${c.mfg||'—'}</td><td style="color:#60a5fa">${c.purchasedFrom||'—'}</td><td style="color:#b45309;font-family:monospace">${c.exNum||'—'}</td><td>${c.productType||'Shell'}</td><td style="text-align:right;font-weight:600">${lbs(c.newW)}</td><td style="text-align:right;font-weight:600">${c.remainingShells}/${c.totalShells}</td><td style="text-align:right;font-weight:700;color:#0f3460">${lbs(c.totalShells*c.newW)}</td><td><span class="badge-${st}">${(CASE_STATUS[st]||{label:st}).label}</span></td><td style="color:#1e40af;font-size:9px">${showNames||'—'}</td><td style="font-family:monospace;color:#16543a;font-weight:600">${checkin}</td><td>—</td><td style="color:#92400e;font-size:9px;font-style:italic">${c.notes||''}</td></tr>${shellSubRows}`;
     }).join('');
 
     const singleRows = activeSingles.map(c=>{
@@ -2383,7 +2381,7 @@ function printReport(direction) {
   ${activeCases.length ? `
   <h2>📦 Cases In Container</h2>
   <table>
-    <thead><tr><th>Catalog #</th><th>Description</th><th>Class</th><th>Manufacturer</th><th>Purchased From</th><th>EX #</th><th>Type</th><th>NEW/unit (lbs)</th><th>Units rem/tot</th><th>Total NEW (lbs)</th><th>Status</th><th>Assigned to Show</th><th>Check-in</th><th>Check-out</th></tr></thead>
+    <thead><tr><th>Catalog #</th><th>Description</th><th>Class</th><th>Manufacturer</th><th>Purchased From</th><th>EX #</th><th>Type</th><th>NEW/unit (lbs)</th><th>Units rem/tot</th><th>Total NEW (lbs)</th><th>Status</th><th>Assigned to Show</th><th>Check-in</th><th>Check-out</th><th>Notes</th></tr></thead>
     <tbody>${caseRows}</tbody>
     <tfoot><tr><td colspan="7">TOTALS</td><td>${tRem}/${tTot}</td><td>${lbs(tNEW)} lbs</td><td colspan="4"></td></tr></tfoot>
   </table>` : '<p style="color:#555;margin:20px 0">No cases currently in container.</p>'}
@@ -2436,7 +2434,8 @@ function printReport(direction) {
         <td style="color:#1e40af">${showUsed}</td>
         <td style="font-size:9px;color:#888">${e.autoMarked?'<span style="background:#fef9c3;color:#854d0e;padding:2px 6px;border-radius:8px;font-size:8px;font-weight:700">AUTO</span>':'Manual'}</td>
         <td style="font-size:9px;color:#555">${purchased}</td>
-      </tr>${notesRow}`;
+        <td style="font-size:9px;color:#92400e;font-style:italic">${srcNotes||''}</td>
+      </tr>`;
     }).join('');
 
     const tNEWout = log.reduce((s,e)=>s+(e.newW||0),0);
@@ -2468,9 +2467,9 @@ function printReport(direction) {
   </div>
   <h2>🚀 Items Removed from Container</h2>
   <table>
-    <thead><tr><th>ID / Catalog #</th><th>Description</th><th>Class</th><th>Manufacturer</th><th>EX #</th><th>NEW (lbs)</th><th>Check-in Date</th><th>Check-out Date</th><th>Show / Used On</th><th>How Marked</th><th>Purchased From</th></tr></thead>
+    <thead><tr><th>ID / Catalog #</th><th>Description</th><th>Class</th><th>Manufacturer</th><th>EX #</th><th>NEW (lbs)</th><th>Check-in Date</th><th>Check-out Date</th><th>Show / Used On</th><th>How Marked</th><th>Purchased From</th><th>Notes</th></tr></thead>
     <tbody>${outRows}</tbody>
-    <tfoot><tr><td colspan="5">TOTALS — ${log.length} item${log.length!==1?'s':''}</td><td>${lbs(tNEWout)} lbs</td><td colspan="5"></td></tr></tfoot>
+    <tfoot><tr><td colspan="5">TOTALS — ${log.length} item${log.length!==1?'s':''}</td><td>${lbs(tNEWout)} lbs</td><td colspan="6"></td></tr></tfoot>
   </table>
   <div class="sig">
     <div class="sig-line"><div class="line"></div><div class="label"><span>Licensee Signature</span><span>Date</span></div></div>
