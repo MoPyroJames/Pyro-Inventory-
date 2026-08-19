@@ -765,8 +765,9 @@ function renderShellDetail(el) {
       ? `<div style="display:flex;flex-direction:column;gap:4px">
           <input class="edit-input" value="${esc(state.editingShell.desc)}" oninput="state.editingShell.desc=this.value" onkeydown="shellEditKeydown(event)" placeholder="Description / lot" autofocus style="width:100%"/>
           <input class="edit-input" value="${esc(state.editingShell.purchasedFrom||'')}" oninput="state.editingShell.purchasedFrom=this.value" onkeydown="shellEditKeydown(event)" placeholder="Purchased from" style="width:100%;font-size:11px"/>
+          <input class="edit-input" value="${esc(state.editingShell.notes||'')}" oninput="state.editingShell.notes=this.value" onkeydown="shellEditKeydown(event)" placeholder="Notes" style="width:100%;font-size:11px"/>
          </div>`
-      : `<div><span class="editable-val" title="Click Edit to change" style="cursor:default">${esc(s.desc)}</span>${s.purchasedFrom?`<div style="font-size:10px;color:#60a5fa;margin-top:2px">from: ${esc(s.purchasedFrom)}</div>`:''}</div>`;
+      : `<div><span class="editable-val" title="Click Edit to change" style="cursor:default">${esc(s.desc)}</span>${s.purchasedFrom?`<div style="font-size:10px;color:#60a5fa;margin-top:2px">from: ${esc(s.purchasedFrom)}</div>`:''} ${s.notes?`<div style="font-size:10px;color:#fbbf24;margin-top:2px">📝 ${esc(s.notes)}</div>`:''}</div>`;
     const newWCell = isEditS
       ? `<input class="edit-input" type="number" min=".0001" step=".0001" value="${esc(state.editingShell.newW)}" oninput="state.editingShell.newW=this.value" onkeydown="shellEditKeydown(event)" style="width:90px"/>`
       : `<span class="editable-val" onclick="startEditShell(${s.id})">${lbs(s.newW)}</span>`;
@@ -1305,6 +1306,7 @@ function renderReportTab() {
             : dpBtn(s.usedAt,iso=>{updateLogTs('shellused',s.id,iso);renderTab('report')},'Set date')
           ) : ''}
         </td>
+        <td class="td-sub" style="font-size:11px;color:#fbbf24">${esc(s.notes||'')}</td>
         <td class="td-sub"></td>
       </tr>`;
     }).join('');
@@ -2040,7 +2042,7 @@ function updateShellStatus(id, newStatus) {
 function startEditShell(id) {
   const s = state.data.shells.find(x=>x.id===id);
   if (!s) return;
-  state.editingShell = {id:s.id, newW:String((s.newW/16).toFixed(4)), desc:s.desc, purchasedFrom:s.purchasedFrom||''};
+  state.editingShell = {id:s.id, newW:String((s.newW/16).toFixed(4)), desc:s.desc, purchasedFrom:s.purchasedFrom||'', notes:s.notes||''};
   renderTab('cases');
 }
 function shellEditKeydown(e) {
@@ -2066,6 +2068,7 @@ function saveEditingShell() {
     if (lbsVal>0) s.newW = lbsVal*16;
     if (state.editingShell.desc.trim()) s.desc = state.editingShell.desc.trim();
     s.purchasedFrom = state.editingShell.purchasedFrom?.trim()||null;
+    s.notes = state.editingShell.notes?.trim()||null;
   }
   state.editingShell = null;
   save(); renderTab('cases');
