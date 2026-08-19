@@ -2415,15 +2415,13 @@ function printReport(direction) {
 
     const outRows = [...log].sort((a,b)=>new Date(a.removedAt)-new Date(b.removedAt)).map(e=>{
       const isCase = e.type==='case';
-      const checkin = isCase
-        ? (cases.find(c=>c.catalogNum===e.catalogNum)?.createdAt)
-        : (shells.find(s=>s.shellNum===e.shellNum)?.addedAt);
+      const srcCase  = isCase ? cases.find(c=>c.catalogNum===e.catalogNum) : null;
+      const srcShell = !isCase ? shells.find(s=>s.shellNum===e.shellNum) : null;
+      const checkin = isCase ? srcCase?.createdAt : srcShell?.addedAt;
       const checkinStr = checkin?(()=>{const d=checkin.slice(0,10);const[y,m,day]=d.split('-');return m+'/'+day+'/'+y;})():'—';
       const checkoutStr = e.removedAt?(()=>{const d=e.removedAt.slice(0,10);const[y,m,day]=d.split('-');return m+'/'+day+'/'+y;})():'—';
       const showUsed = e.shows&&e.shows.length ? e.shows.join(', ') : (e.usedOnShow||'—');
-      const purchased = isCase
-        ? (cases.find(c=>c.catalogNum===e.catalogNum)?.purchasedFrom||'—')
-        : (shells.find(s=>s.shellNum===e.shellNum)?.purchasedFrom||'—');
+      const purchased = isCase ? (srcCase?.purchasedFrom||'—') : (srcShell?.purchasedFrom||'—');
       const srcNotes = isCase ? srcCase?.notes : srcShell?.notes;
       const notesRow = srcNotes ? `<tr style="background:#fffbeb"><td colspan="11" style="padding:3px 10px 4px 20px;font-size:8.5px;color:#92400e;font-style:italic;border-bottom:1px solid #fde68a"><span style="font-weight:700;font-style:normal;color:#b45309">Notes: </span>${srcNotes}</td></tr>` : '';
       return `<tr>
@@ -3984,7 +3982,7 @@ function exportLog(direction) {
     const checkedOutCatalogs = new Set((removalLog||[]).filter(e=>e.type==='case').map(e=>e.catalogNum));
     const checkedOutShellNums = new Set((removalLog||[]).filter(e=>e.type==='shell').map(e=>e.shellNum));
 
-    const header = ['Type','ID / Catalog #','Description','Manufacturer','ATF Class','EX #','Shell Size','NEW (lbs)','Status','Assigned to Show','Check-in Date','Purchased From','Container','Licensee'];
+    const header = ['Type','ID / Catalog #','Description','Manufacturer','ATF Class','EX #','Shell Size','NEW (lbs)','Status','Assigned to Show','Check-in Date','Purchased From','Notes','Container','Licensee'];
 
     const rows = [];
 
@@ -3998,6 +3996,7 @@ function exportLog(direction) {
         c.status, showName,
         c.createdAt ? new Date(c.createdAt).toLocaleDateString() : '',
         c.purchasedFrom||'',
+        c.notes||'',
         state.container||'', state.licensee||''
       ]);
     });
@@ -4014,6 +4013,7 @@ function exportLog(direction) {
         s.status, showName,
         c.createdAt ? new Date(c.createdAt).toLocaleDateString() : '',
         c.purchasedFrom||s.purchasedFrom||'',
+        c.notes||s.notes||'',
         state.container||'', state.licensee||''
       ]);
     });
@@ -4030,6 +4030,7 @@ function exportLog(direction) {
         s.status, showName,
         s.addedAt ? new Date(s.addedAt).toLocaleDateString() : '',
         s.purchasedFrom||pc.purchasedFrom||'',
+        s.notes||'',
         state.container||'', state.licensee||''
       ]);
     });
@@ -4042,13 +4043,13 @@ function exportLog(direction) {
       header,
       ...rows
     ]);
-    ws['!cols'] = [10,14,30,14,10,10,8,10,10,20,14,18,16,20].map(w=>({wch:w}));
+    ws['!cols'] = [10,14,30,14,10,10,8,10,10,20,14,18,25,16,20].map(w=>({wch:w}));
     XLSX.utils.book_append_sheet(wb, ws, 'In Stock');
     XLSX.writeFile(wb, `in_stock_log_${date}.xlsx`);
 
   } else {
     // Items that were checked in and have been checked out
-    const header = ['Type','ID / Catalog #','Description','Manufacturer','ATF Class','EX #','Shell Size','NEW (lbs)','Check-in Date','Check-out Date','Show(s) Used On','Auto-marked','Purchased From','Container','Licensee'];
+    const header = ['Type','ID / Catalog #','Description','Manufacturer','ATF Class','EX #','Shell Size','NEW (lbs)','Check-in Date','Check-out Date','Show(s) Used On','Auto-marked','Purchased From','Notes','Container','Licensee'];
 
     const rows = (removalLog||[]).map(e => {
       const srcCase  = e.type==='case'  ? cases.find(c=>c.catalogNum===e.catalogNum) : null;
@@ -4070,6 +4071,7 @@ function exportLog(direction) {
         showUsed||'',
         e.autoMarked ? 'Yes' : 'No',
         purchasedFrom,
+        (e.type==='case' ? srcCase?.notes : srcShell?.notes)||'',
         state.container||'', state.licensee||''
       ];
     });
@@ -4082,7 +4084,7 @@ function exportLog(direction) {
       header,
       ...rows
     ]);
-    ws['!cols'] = [10,14,30,14,10,10,8,10,14,14,20,10,18,16,20].map(w=>({wch:w}));
+    ws['!cols'] = [10,14,30,14,10,10,8,10,14,14,20,10,18,25,16,20].map(w=>({wch:w}));
     XLSX.utils.book_append_sheet(wb, ws, 'Checked Out');
     XLSX.writeFile(wb, `checked_out_log_${date}.xlsx`);
   }
