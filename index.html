@@ -510,41 +510,72 @@ function autoMarkUsedByShowDate() {
     const sh = state.shows.find(x=>x.id===sa.showId);
     if (!sh || !sh.date) return;
     const showDate = new Date(sh.date + 'T00:00:00');
-    // Only auto-mark after show date has passed
     if (showDate >= today) return;
 
     const s = state.data.shells.find(x=>x.id===sa.shellId);
-    if (!s || s.status === 'used') return; // already used
+    if (!s || s.status === 'used') return;
 
-    // Mark as used — same logic as updateShellStatus but inline
     s.status = 'used';
-    s.usedAt = s.usedAt || (showDate.toISOString()); // use show date as usedAt
+    s.usedAt = s.usedAt || showDate.toISOString();
     s.usedOnShow = sh.name;
-    s.autoMarked = true; // flag so we know it was auto-set
+    s.autoMarked = true;
 
-    // Decrement parent case remaining
     const c = state.data.cases.find(x=>x.id===s.caseId);
     if (c && c.remainingShells > 0) {
       c.remainingShells = Math.max(0, c.remainingShells - 1);
       c.status = c.remainingShells === 0 ? 'empty' : 'partial';
     }
 
-    // Log it
     if (!state.data.removalLog) state.data.removalLog = [];
     const alreadyLogged = state.data.removalLog.some(e=>e.markedUsed && e.shellNum===s.shellNum);
     if (!alreadyLogged) {
       state.data.removalLog.push({
         id: Date.now() + Math.random(),
         type: 'shell', removedAt: s.usedAt,
-        parentCatalog: (state.data.cases.find(x=>x.id===s.caseId)||{}).catalogNum||'',
-        parentName: (state.data.cases.find(x=>x.id===s.caseId)||{}).name||'',
+        parentCatalog: c?.catalogNum||'',
+        parentName: c?.name||'',
         shellNum: s.shellNum, desc: s.desc, newW: s.newW,
         status: 'used', shows: [sh.name],
         removedWithCase: false, markedUsed: true, autoMarked: true,
       });
     }
-    // Auto-log case if all shells now used
     checkCaseAllShellsUsed(s.caseId);
+    changed = true;
+  });
+
+  // Also handle case-level assignments where shells were NOT individually logged
+  // (sealed cases assigned by quantity — no entries in state.data.shells)
+  state.data.assignments.forEach(a => {
+    const sh = state.shows.find(x=>x.id===a.showId);
+    if (!sh || !sh.date) return;
+    const showDate = new Date(sh.date + 'T00:00:00');
+    if (showDate >= today) return;
+
+    const c = state.data.cases.find(x=>x.id===a.caseId);
+    if (!c || c.status === 'used' || c.isSingle) return;
+
+    // Only auto-mark if case has no individually logged shells
+    const cShells = state.data.shells.filter(s=>s.caseId===c.id);
+    if (cShells.length > 0) return; // handled per-shell above
+
+    // Mark the case itself as used
+    c.status = 'used';
+    c.usedAt = c.usedAt || showDate.toISOString();
+    c.remainingShells = 0;
+
+    if (!state.data.removalLog) state.data.removalLog = [];
+    const alreadyLogged = state.data.removalLog.some(e=>e.markedUsed && e.type==='case' && e.catalogNum===c.catalogNum);
+    if (!alreadyLogged) {
+      const showNames = [...new Set(state.data.assignments.filter(x=>x.caseId===c.id).map(x=>{const s=state.shows.find(y=>y.id===x.showId);return s?s.name:null;}).filter(Boolean))];
+      state.data.removalLog.push({
+        id: Date.now() + Math.random(),
+        type: 'case', removedAt: c.usedAt,
+        catalogNum: c.catalogNum, name: c.name, mfg: c.mfg||'', cls: c.cls,
+        newW: c.newW, totalShells: c.totalShells, remainingShells: 0,
+        shows: showNames, markedUsed: true, autoMarked: true,
+        parentCatalog: c.catalogNum,
+      });
+    }
     changed = true;
   });
 
