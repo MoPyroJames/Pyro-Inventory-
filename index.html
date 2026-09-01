@@ -378,6 +378,42 @@ let state = {
 
 function save() { saveCurrentContainer(); saveSharedShows(); }
 
+// ── Backfill removal log entries missing cls/mfg/exNum/purchasedFrom ────────
+function migrateRemovalLog() {
+  let changed = false;
+  (state.data.removalLog||[]).forEach(e => {
+    const needsMfg  = !e.mfg  && e.mfg  !== '';
+    const needsCls  = !e.cls;
+    const needsEx   = !e.exNum && e.exNum !== '';
+    const needsPurch = !e.purchasedFrom && e.purchasedFrom !== '';
+    const needsCheckin = !e.checkinDate;
+    if (!needsMfg && !needsCls && !needsEx && !needsPurch && !needsCheckin) return;
+
+    // Try to find source case or shell
+    let srcCase = null, srcShell = null;
+    if (e.type === 'case') {
+      srcCase = state.data.cases.find(c=>c.catalogNum===e.catalogNum);
+    } else {
+      srcShell = state.data.shells.find(s=>s.shellNum===e.shellNum);
+      if (srcShell) srcCase = state.data.cases.find(c=>c.id===srcShell.caseId);
+      else srcCase = state.data.cases.find(c=>c.catalogNum===e.parentCatalog);
+    }
+
+    if (needsCls  && (srcCase?.cls   )) { e.cls          = srcCase.cls;                                    changed = true; }
+    if (needsMfg  && (srcCase?.mfg   )) { e.mfg          = srcCase.mfg;                                    changed = true; }
+    if (needsEx   && (srcCase?.exNum )) { e.exNum        = srcCase.exNum;                                  changed = true; }
+    if (needsPurch) {
+      const pf = (e.type==='shell' ? srcShell?.purchasedFrom : null) || srcCase?.purchasedFrom;
+      if (pf) { e.purchasedFrom = pf; changed = true; }
+    }
+    if (needsCheckin) {
+      const ci = e.type==='case' ? (srcCase?.createdAt||srcCase?.addedAt) : (srcShell?.addedAt||srcCase?.createdAt);
+      if (ci) { e.checkinDate = ci; changed = true; }
+    }
+  });
+  if (changed) save();
+}
+
 // ── Helpers ────────────────────────────────────────────────────────────────
 function genId(type, sizePrefix) {
   // Gather all existing numbers to avoid collisions
@@ -4715,6 +4751,7 @@ function saveSub() {
 
 render();
 loadTitles();
+migrateRemovalLog();
 
 // ── Password Lock ─────────────────────────────────────────────────────────
 const LOCK_KEY = 'pyro_app_password';
