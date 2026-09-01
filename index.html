@@ -535,6 +535,8 @@ function autoMarkUsedByShowDate() {
         parentCatalog: c?.catalogNum||'',
         parentName: c?.name||'',
         shellNum: s.shellNum, desc: s.desc, newW: s.newW,
+        cls: c?.cls, mfg: c?.mfg||'', exNum: c?.exNum||'', purchasedFrom: s.purchasedFrom||c?.purchasedFrom||'',
+        checkinDate: s.addedAt||null,
         status: 'used', shows: [sh.name],
         removedWithCase: false, markedUsed: true, autoMarked: true,
       });
@@ -572,6 +574,7 @@ function autoMarkUsedByShowDate() {
         type: 'case', removedAt: c.usedAt,
         catalogNum: c.catalogNum, name: c.name, mfg: c.mfg||'', cls: c.cls,
         newW: c.newW, totalShells: c.totalShells, remainingShells: 0,
+        checkinDate: c.createdAt||c.addedAt||null,
         shows: showNames, markedUsed: true, autoMarked: true,
         parentCatalog: c.catalogNum,
       });
@@ -1745,6 +1748,8 @@ function removeCase(id) {
           id: Date.now(), type:'shell', removedAt: new Date().toISOString(),
           parentCatalog: c.catalogNum, parentName: c.name,
           shellNum: s.shellNum, desc: s.desc, newW: s.newW, status: s.status,
+          cls: c.cls, mfg: c.mfg||'', exNum: c.exNum||'', purchasedFrom: s.purchasedFrom||c.purchasedFrom||'',
+          checkinDate: s.addedAt||c.createdAt||null,
           shows: sShowNames.length ? sShowNames : showNames, removedWithCase: false,
         });
       } else {
@@ -1753,6 +1758,8 @@ function removeCase(id) {
           id: Date.now(), type:'shell', removedAt: new Date().toISOString(),
           parentCatalog: c.catalogNum, parentName: c.name,
           shellNum: c.catalogNum, desc: c.name, newW: c.newW, status: c.status,
+          cls: c.cls, mfg: c.mfg||'', exNum: c.exNum||'', purchasedFrom: c.purchasedFrom||'',
+          checkinDate: c.createdAt||null,
           shows: showNames, removedWithCase: false,
         });
       }
@@ -1762,6 +1769,7 @@ function removeCase(id) {
         id: Date.now(), type:'case', removedAt: new Date().toISOString(),
         catalogNum: c.catalogNum, name: c.name, mfg: c.mfg||'', cls: c.cls,
         newW: c.newW, totalShells: c.totalShells, remainingShells: c.remainingShells,
+        checkinDate: c.createdAt||c.addedAt||null,
         shows: showNames,
       });
       cShells.forEach((s,i) => {
@@ -1771,6 +1779,8 @@ function removeCase(id) {
           id: Date.now()+i+1, type:'shell', removedAt: new Date().toISOString(),
           parentCatalog: c.catalogNum, parentName: c.name,
           shellNum: s.shellNum, desc: s.desc, newW: s.newW, status: s.status,
+          cls: c.cls, mfg: c.mfg||'', exNum: c.exNum||'', purchasedFrom: s.purchasedFrom||c.purchasedFrom||'',
+          checkinDate: s.addedAt||c.createdAt||null,
           shows: sShowNames, removedWithCase: true,
         });
       });
@@ -1813,6 +1823,8 @@ function updateCaseStatus(id, status) {
           shellNum: shell?.shellNum||c.catalogNum,
           desc: shell?.desc||c.name,
           newW: c.newW, status: 'used',
+          cls: c.cls, mfg: c.mfg||'', exNum: c.exNum||'', purchasedFrom: shell?.purchasedFrom||c.purchasedFrom||'',
+          checkinDate: shell?.addedAt||c.createdAt||null,
           shows: showNames, markedUsed: true,
         });
       } else {
@@ -1820,6 +1832,7 @@ function updateCaseStatus(id, status) {
           id: Date.now(), type:'case', removedAt: c.usedAt,
           catalogNum: c.catalogNum, name: c.name, mfg: c.mfg||'', cls: c.cls,
           newW: c.newW, totalShells: c.totalShells, remainingShells: c.remainingShells,
+          checkinDate: c.createdAt||c.addedAt||null,
           shows: showNames, markedUsed: true,
         });
       }
@@ -1997,6 +2010,7 @@ function checkCaseAllShellsUsed(caseId) {
       removedAt: new Date(new Date(c.usedAt).getTime() + 1).toISOString(),
       catalogNum: c.catalogNum, name: c.name, mfg: c.mfg||'', cls: c.cls,
       newW: c.newW, totalShells: c.totalShells, remainingShells: 0,
+      checkinDate: c.createdAt||c.addedAt||null,
       shows: showNames, markedUsed: true, autoMarked: true,
       parentCatalog: c.catalogNum, // self-reference so shell entries can match
     });
@@ -2449,19 +2463,25 @@ function printReport(direction) {
       const isCase = e.type==='case';
       const srcCase  = isCase ? cases.find(c=>c.catalogNum===e.catalogNum) : null;
       const srcShell = !isCase ? shells.find(s=>s.shellNum===e.shellNum) : null;
-      const checkin = isCase ? srcCase?.createdAt : srcShell?.addedAt;
-      const checkinStr = checkin?(()=>{const d=checkin.slice(0,10);const[y,m,day]=d.split('-');return m+'/'+day+'/'+y;})():'—';
+      // Get check-in date from live case/shell first, fall back to stored value in log entry
+      const checkin = isCase
+        ? (srcCase?.createdAt || e.checkinDate)
+        : (srcShell?.addedAt  || e.checkinDate);
+      const checkinStr = checkin?(()=>{const d=new Date(checkin).toISOString().slice(0,10);const[y,m,day]=d.split('-');return m+'/'+day+'/'+y;})():'—';
       const checkoutStr = e.removedAt?(()=>{const d=e.removedAt.slice(0,10);const[y,m,day]=d.split('-');return m+'/'+day+'/'+y;})():'—';
       const showUsed = e.shows&&e.shows.length ? e.shows.join(', ') : (e.usedOnShow||'—');
-      const purchased = isCase ? (srcCase?.purchasedFrom||'—') : (srcShell?.purchasedFrom||'—');
+      const cls       = e.cls     || srcCase?.cls     || srcShell?.cls     || '';
+      const mfg       = e.mfg     || srcCase?.mfg     || srcShell?.mfg     || '—';
+      const exNum     = e.exNum   || srcCase?.exNum   || srcShell?.exNum   || '—';
+      const purchased = e.purchasedFrom || (isCase ? srcCase?.purchasedFrom : srcShell?.purchasedFrom) || '—';
       const srcNotes = isCase ? srcCase?.notes : srcShell?.notes;
       const notesRow = srcNotes ? `<tr style="background:#fffbeb"><td colspan="11" style="padding:3px 10px 4px 20px;font-size:8.5px;color:#92400e;font-style:italic;border-bottom:1px solid #fde68a"><span style="font-weight:700;font-style:normal;color:#b45309">Notes: </span>${srcNotes}</td></tr>` : '';
       return `<tr>
         <td style="color:${isCase?'#c0392b':'#7c3aed'}">${isCase?e.catalogNum:e.shellNum}</td>
         <td>${isCase?e.name:e.desc}</td>
-        <td>${CLASS_LABELS[e.cls]||e.cls||'—'}</td>
-        <td>${e.mfg||'—'}</td>
-        <td style="color:#b45309;font-family:monospace">${e.exNum||'—'}</td>
+        <td>${CLASS_LABELS[cls]||cls||'—'}</td>
+        <td>${mfg}</td>
+        <td style="color:#b45309;font-family:monospace">${exNum}</td>
         <td style="text-align:right;font-family:monospace;font-weight:600">${lbs(e.newW)}</td>
         <td style="font-family:monospace;color:#16543a">${checkinStr}</td>
         <td style="font-family:monospace;color:#991b1b;font-weight:700">${checkoutStr}</td>
@@ -4087,16 +4107,19 @@ function exportLog(direction) {
     const rows = (removalLog||[]).map(e => {
       const srcCase  = e.type==='case'  ? cases.find(c=>c.catalogNum===e.catalogNum) : null;
       const srcShell = e.type==='shell' ? shells.find(s=>s.shellNum===e.shellNum)    : null;
-      const checkinDate = srcCase?.createdAt || srcShell?.addedAt || '';
-      const showUsed = e.shows && e.shows.length ? e.shows.join(', ') : (e.usedOnShow||'');
-      const purchasedFrom = srcCase?.purchasedFrom || srcShell?.purchasedFrom || '';
+      const checkinDate   = srcCase?.createdAt || srcShell?.addedAt || e.checkinDate || '';
+      const showUsed      = e.shows && e.shows.length ? e.shows.join(', ') : (e.usedOnShow||'');
+      const purchasedFrom = e.purchasedFrom || srcCase?.purchasedFrom || srcShell?.purchasedFrom || '';
+      const eMfg          = e.mfg   || srcCase?.mfg   || srcShell?.mfg   || '';
+      const eCls          = e.cls   || srcCase?.cls   || srcShell?.cls   || '';
+      const eExNum        = e.exNum || srcCase?.exNum || srcShell?.exNum || '';
       return [
         e.type==='case' ? 'Case' : 'Shell',
         e.type==='case' ? e.catalogNum : e.shellNum,
         e.type==='case' ? e.name : e.desc,
-        e.mfg||'',
-        CLASS_LABELS[e.cls]||e.cls||'',
-        e.exNum||'',
+        eMfg,
+        CLASS_LABELS[eCls]||eCls||'',
+        eExNum,
         '',
         parseFloat(lbs(e.newW)),
         checkinDate ? new Date(checkinDate).toLocaleDateString() : '',
