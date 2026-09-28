@@ -364,7 +364,7 @@ let state = {
   editingCase: null,
   editingShell: null,
   search: '', showFilter: '', statusFilter: '', showUsedCases: false,
-  caseForm: {name:'',mfg:'',cls:'1C',productType:'Shell',newW:'',totalShells:'',show:'',shellSize:'',caseCost:'',exNum:'',purchasedFrom:'',isSingle:false,singleQty:'1',notes:'',notesOnReport:false,isChain:false,chainCount:'',shellsPerChain:'',boxCount:'1',isAssortment:false,assortmentShells:[]},
+  caseForm: {name:'',mfg:'',cls:'1C',productType:'Shell',newW:'',totalShells:'',show:'',shellSize:'',caseCost:'',exNum:'',purchasedFrom:'',isSingle:false,singleQty:'1',qty:'1',notes:'',notesOnReport:false,isChain:false,chainCount:'',shellsPerChain:'',boxCount:'1',isAssortment:false,assortmentShells:[]},
   shellForm: {desc:'',shellNewW:'',shellSize:'',notes:''},
   showForm: {name:'',date:'',location:'',notes:''},
   assignForm: {caseId:'',qty:'1',shellCaseId:'',selectedShells:{}},
@@ -1209,13 +1209,12 @@ function renderAddTab() {
         </div>
         <div class="fld"><label>NEW / unit (lbs)</label><input type="number" min=".0001" step=".0001" placeholder="0.0938" value="${esc(caseForm.newW)}" oninput="state.caseForm.newW=this.value"></div>
         <div class="fld"><label>Units / case</label><input type="number" min="1" step="1" placeholder="24" value="${esc(caseForm.isSingle?'1':caseForm.isChain?String((parseInt(caseForm.chainCount)||0)*(parseInt(caseForm.shellsPerChain)||0)*(parseInt(caseForm.boxCount)||1)||''):caseForm.totalShells)}" ${caseForm.isChain?'readonly style="background:#0a0a0a;color:#888;cursor:default"':''} oninput="state.caseForm.totalShells=this.value"></div>
-        ${caseForm.isSingle?`
         <div class="fld">
           <label>Qty to add <span style="font-size:11px;color:#555;font-weight:400">(# of cases)</span></label>
-          <input type="number" min="1" step="1" placeholder="1" value="${esc(caseForm.singleQty||'1')}"
-            oninput="state.caseForm.singleQty=this.value"
+          <input type="number" min="1" step="1" placeholder="1" value="${esc(caseForm.qty||'1')}"
+            oninput="state.caseForm.qty=this.value;state.caseForm.singleQty=this.value"
             style="font-family:var(--mono);color:#86efac">
-        </div>`:''}
+        </div>
         <div class="fld"><label>Case cost ($)</label><input type="number" min="0" step="0.01" placeholder="0.00" value="${esc(caseForm.caseCost)}" oninput="state.caseForm.caseCost=this.value"></div>
         <div class="fld"><label>Purchased from</label><input placeholder="e.g. Casabella Pyro" value="${esc(caseForm.purchasedFrom)}" oninput="state.caseForm.purchasedFrom=this.value"></div>
         <div class="fld"><label>Unit cost ($)</label><input type="text" readonly style="background:#0a0a0a;color:#888;cursor:default" value="${caseForm.caseCost&&caseForm.totalShells&&parseInt(caseForm.totalShells)>0?'$'+(parseFloat(caseForm.caseCost)/parseInt(caseForm.totalShells)).toFixed(2):'auto'}"></div>
@@ -1689,7 +1688,7 @@ function addCase() {
     if (!n||n<1) { state.caseErr='Shell count required.'; renderTab('add'); return; }
   }
 
-  const singleQtyN = isSingle ? Math.max(1, parseInt(state.caseForm.singleQty)||1) : 1;
+  const singleQtyN = Math.max(1, parseInt(state.caseForm.qty)||parseInt(state.caseForm.singleQty)||1);
 
   state.caseErr = '';
   const autoSize = shellSize.trim() || extractShellSize(name);
@@ -1721,7 +1720,7 @@ function addCase() {
   autoLogShells(newCase);
   }
   save();
-  state.caseForm = {name:'',mfg:'',cls:'1C',productType:'Shell',newW:'',totalShells:'',show:show,shellSize:'',caseCost:'',exNum:'',purchasedFrom:'',isSingle:false,singleQty:'1',notes:'',notesOnReport:false,isChain:false,chainCount:'',shellsPerChain:'',boxCount:'1',isAssortment:false,assortmentShells:[]};
+  state.caseForm = {name:'',mfg:'',cls:'1C',productType:'Shell',newW:'',totalShells:'',show:show,shellSize:'',caseCost:'',exNum:'',purchasedFrom:'',isSingle:false,singleQty:'1',qty:'1',notes:'',notesOnReport:false,isChain:false,chainCount:'',shellsPerChain:'',boxCount:'1',isAssortment:false,assortmentShells:[]};
   switchTab('cases');
 }
 
@@ -2813,7 +2812,10 @@ function updateLogTs(kind, id, datetimeLocalValue) {
     if (c) {
       c.createdAt = newTs;
       c.addedAt = newTs;
-      // Also update any removal log entries for this case's check-in
+      // Sync all shells in this case to the same check-in date
+      state.data.shells.filter(s => s.caseId === c.id).forEach(s => {
+        s.addedAt = newTs;
+      });
     }
   } else if (kind === 'shell') {
     const s = state.data.shells.find(x => String(x.id) === sid);
