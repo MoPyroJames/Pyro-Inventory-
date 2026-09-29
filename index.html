@@ -786,7 +786,7 @@ function renderCasesTab() {
   el.innerHTML = `
     <div class="card">
       <div class="card-toolbar">
-        <input style="width:200px;flex:none" placeholder="Search catalog #, name…" value="${esc(search)}" oninput="state.search=this.value;renderTab('cases')">
+        <input id="cases-search-input" style="width:200px;flex:none" placeholder="Search catalog #, name…" value="${esc(search)}" oninput="state.search=this.value;(function(el){const pos=el.selectionStart;renderTab('cases');const r=document.getElementById('cases-search-input');if(r){r.focus();try{r.setSelectionRange(pos,pos);}catch(e){}}})(this)">
         <select style="width:150px;flex:none" onchange="state.showFilter=this.value;renderTab('cases')">
           <option value="">All shows</option>
           ${allShows.map(s=>`<option value="${esc(s)}"${showFilter===s?' selected':''}>${esc(s)}</option>`).join('')}
